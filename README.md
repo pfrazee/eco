@@ -30,7 +30,9 @@ New Objects are created with a `declare` operation in the Dataset that includes 
 
 SSB's feeds guarantee one-time, ordered delivery of messages (within that feed). That gives us flexibility to use operation-based CRDTs.
 
-Ecotypes are also aware of the full set of nodes involved, as they are defined in the schema. In that definition, the node-set is ordered. That ordering is used as needed, for instance to assign the dimensions in vector clocks, and to determine the order of authority in Greatest Authority Wins. (A nodeset of `{Bob, Alice}` creates a vector-clock of `<bob_seq,alice_seq>`.)
+Ecotypes are also aware of the full set of nodes involved, as they are defined in the schema. In that definition, the node-set is ordered. That ordering assigns the dimensions in vector clocks and determines the order of authority in Greatest Authority Wins.
+
+Each update message includes the node's vector clock.
 
 ### `Counter` - [Op-based Counter](https://github.com/pfraze/crdt_notes#op-based-counter)
 
@@ -38,43 +40,49 @@ Methods: `inc()`, `dec()`, `get() -> integer`
 
 ### `CounterSet` - [PN Set](https://github.com/pfraze/crdt_notes#pn-set)
 
-Methods: `inc(atom)`, `dec(atom)`, `get(atom) -> integer`
+Methods: `inc(value:atom)`, `dec(value:atom)`, `get(value:atom) -> integer`
 
 A set of counters.
 
 ### `Register` - [Multi-Value Register](https://github.com/pfraze/crdt_notes#multi-value-register-mv-register)
 
-Methods: `set(atom)`, `get() -> atom`, `isMV() -> bool`
+Methods: `set(value:atom)`, `get() -> atom`, `isMV() -> bool`
 
 Multi-value is preferable to LWW because conflicts only occur when multiple users assign concurrently, and so the application/users may want to resolve. When splits occur, the values are ordered in an array by the node-set's ordering.
 
 ### `GrowSet` - [Grow-Only Set](https://github.com/pfraze/crdt_notes#grow-only-set-g-set)
 
-Methods: `add(atom)`, `has(atom) -> bool`
+Methods: `add(value:atom)`, `has(value:atom) -> bool`
 
 For sets which only ever grow.
 
 ### `OnceSet` - [Two-Phase Set](https://github.com/pfraze/crdt_notes#2p-set)
 
-Methods: `add(atom)`, `remove(atom)`, `has(atom) -> bool`
+Methods: `add(value:atom)`, `remove(value:atom)`, `has(value:atom) -> bool`
 
 For sets which guarantee that an item can only be added (and removed) once.
 
 ### `Set` - [Observed-Removed Set](https://github.com/pfraze/crdt_notes#or-set)
 
-Methods: `add(atom)`, `remove(atom)`, `has(has) -> bool`
+Methods: `add(value:atom)`, `remove(value:atom)`, `has(value:atom) -> bool`
 
 For sets with no unique guarantees (a typical set).
 
+### `OrderedSet` - [Greatest-Authority-Wins Replicated Growable Arrays](https://github.com/pfraze/crdt_notes#replicated-growable-array)
+
+Methods: `insert(lelement:atom, value:atom)`, `remove(element:atom)`
+
+For sets which guarantee order. Inserts with the same left-element are ordered by vclock-timestamp. If one doesn't dominate the other, then greatest-authority is used. Element-membership behaves like an OR Set.
+
 ### `Map` - Observed-Removed, Multi-Value Map
 
-Methods: `set(atom, atom)`, `get(atom) -> atom`, `remove(atom)`, `isMV(atom) -> bool`
+Methods: `set(key:atom, value:atom)`, `get(key:atom) -> atom`, `remove(key:atom)`, `isMV(key:atom) -> bool`
 
 Behaves like an OR Set where the element identity is `(key, uuid)`. The `set` operation removes then adds the value at `key`. Concurrent removes are idempotent; concurrent add/remove are independent due to the uuid; and concurrent adds join into a multi-value, as in the MV Register.
 
 ### `Dataset` - Observed-Removed, Greatest-Authority-Wins Map
 
-Methods: `declare(atom, type)`, `get(atom) -> type`, `undeclare(atom)`
+Methods: `declare(key:atom, type:atom)`, `get(key:atom) -> atom`, `undeclare(key:atom)`
 
 Behaves like the Map, but only specifies the types for child-Objects, and does not support Multi-Value state. Objects may be redeclared, but (depending on the change) the redeclaration may destroy the current value. In the event of a conflict, the node with the greatest authority (defined by the ordered participants list) wins.
 
