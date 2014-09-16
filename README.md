@@ -2,19 +2,25 @@
 
 Library of data types for building distributed applications on [Phoenix](https://github.com/pfraze/phoenix)/[SSB](https://github.com/dominictarr/secure-scuttlebutt).
 
+## Background
+
 Secure-scuttlebutt feeds guarantee delivery order and message authenticity. In Phoenix, each feed represents an individual user. By merging updates from multiple feeds, we can create aggregate datasets, as in a multi-node database. However, because the nodes only sync periodically, and (in extreme cases) may never experience mutual uptime, the datasets must be prepared for a weaker form of consistency (eventual consistency). Ecotypes is a library of types which behave well under these conditions.
 
 [Background reading on eventual consistency, conflict-free replicated data types, and causal consistency.](https://github.com/pfraze/crdt_notes) If referring to the "Network design" section, Ecotypes are designed for optimistic, passive replication, and include options for both state- and operation-based replication.
 
-**Server Consistency** One beneficial characteristic of Phoenix/SSB is that, unlike in distributed databases, users will never change servers during operation. (That is, they have dedicated servers: their own devices.) This removes a class of issues which occur when a client changes servers during a partition, causing the view of state to be inconsistent.
+## Server Consistency
 
-**Basic Mechanics** Ecotype Datasets are defined by messages which are published in an SSB feed. The feed which initializes the dataset is the owner feed with special admin rights. Participating feeds are explicitly set by the owner feed. Subscribers to the dataset (which may include non-participants) deterministically execute the updates in order to construct a shared state.
+One beneficial characteristic of Phoenix/SSB is that, unlike in distributed databases, users will never change servers during operation. (That is, they have dedicated servers: their own devices.) This removes a class of issues which occur when a client changes servers during a partition, causing the view of state to be inconsistent.
+
+## Basic Mechanics
+
+Ecotype Datasets are defined by messages which are published in an SSB feed. The feed which initializes the dataset is the owner feed with special admin rights. Participating feeds are explicitly set by the owner feed. Subscribers to the dataset (which may include non-participants) deterministically execute the updates in order to construct a shared state.
 
 Datasets are composed of (Eventually Consistent) Objects and Atoms. Messages are [encoded with Msgpack](https://github.com/msgpack/msgpack/blob/master/spec.md#serialization), and so the supported Atoms are the same as the types supported in msgpack.
 
 One Object type, the Dataset, is allowed to contain other Objects. It may include other Datasets, enabling tree-like recursion. Datasets may not include atoms, however, to avoid ambiguous semantics.
 
-New Objects are created with a `set` operation in the Dataset that includes an id and a type declaration. Operations on the Object's value then work on its own semantics using its path (`grandparent.parent.object.method()`). Subsequent `set` operations on the Object's key (`grandparent.parent.set('object', ...)`) will redeclare the object and clear its value. Datasets include strictness parameters to avoid ambiguous schemas.
+New Objects are created with a `declare` operation in the Dataset that includes an id and a type declaration. Operations on the Object's value then work on its own semantics using its path (`grandparent.parent.object.method()`).
 
 *This is in the early stages, so I'm trying out ideas still.*
 
