@@ -1,4 +1,4 @@
-# Eventually-Consistent Object Types
+# Eventually-Consistent Object
 
 Library of data types for building distributed applications on [Phoenix](https://github.com/pfraze/phoenix)/[SSB](https://github.com/dominictarr/secure-scuttlebutt).
 
@@ -6,7 +6,7 @@ Library of data types for building distributed applications on [Phoenix](https:/
 
 ```js
 var multicb = require('multicb')
-var eco = require('ecotypes')
+var eco = require('eco')
 var db = require('levelup')(dbpath)
 var ssb = require('secure-scuttlebutt/create')(ssbpath)
 var feed = ssb.createFeed(keys)
@@ -75,8 +75,8 @@ syncWithBobAndCarla(ssb, function() {
 // Dataset methods
 ds.declare(types, function(err))
 ds.get(key, function(err, type))
-ds.state(function(err, vs)) // fetches state of entire dataset
 ds.remove(key, function(err))
+ds.state(function(err, vs)) // fetches state of entire dataset
 ds.on('change', function(key, old, new, meta))
 ds.createChangeStream() // emits data in change events
 ds.getId() // => Buffer (msg hash)
@@ -137,9 +137,9 @@ m.on('change', function(key, old, new, meta))
 
 ## Background
 
-Secure-scuttlebutt feeds guarantee delivery order and message authenticity. In Phoenix, each feed represents an individual user. By merging updates from multiple feeds, we can create aggregate datasets, as in a multi-node database. However, because the nodes only sync periodically, and (in extreme cases) may never experience mutual uptime, the datasets must be prepared for a weaker form of consistency (eventual consistency). Ecotypes is a library of types which behave well under these conditions.
+Secure-scuttlebutt feeds guarantee delivery order and message authenticity. In Phoenix, each feed represents an individual user. By merging updates from multiple feeds, we can create aggregate datasets, as in a multi-node database. However, because the nodes only sync periodically, and (in extreme cases) may never experience mutual uptime, the datasets must be prepared for a weaker form of consistency (eventual consistency). Eco is a library of types which behave well under these conditions.
 
-[Background reading on eventual consistency, conflict-free replicated data types, and causal consistency.](https://github.com/pfraze/crdt_notes) If referring to the "Network design" section, Ecotypes are designed for optimistic, passive replication, and uses operation-based replication.
+[Background reading on eventual consistency, conflict-free replicated data types, and causal consistency.](https://github.com/pfraze/crdt_notes) If referring to the "Network design" section, Eco types are designed for optimistic, passive replication, and uses operation-based replication.
 
 
 ## Server Consistency
@@ -149,7 +149,7 @@ One beneficial characteristic of Phoenix/SSB is that, unlike in distributed data
 
 ## Basic Mechanics
 
-Ecotype Datasets are defined by messages which are published in an SSB feed. The feed which initializes the dataset is the owner feed with special admin rights. Participating feeds are explicitly set by the owner feed. Subscribers to the dataset (which may include non-participants) deterministically execute the updates in order to construct a shared state.
+Eco Datasets are defined by messages which are published in an SSB feed. The feed which initializes the dataset is the owner feed with special admin rights. Participating feeds are explicitly set by the owner feed. Subscribers to the dataset (which may include non-participants) deterministically execute the updates in order to construct a shared state.
 
 Datasets are composed of (Eventually Consistent) Objects and Atoms. Messages are [encoded with Msgpack](https://github.com/msgpack/msgpack/blob/master/spec.md#serialization), and so the supported Atoms are the same as the types supported in msgpack.
 
@@ -162,6 +162,7 @@ New Objects are created with a `declare` operation in the Dataset that includes 
 
 ```
 {
+  dataset: { $msg: Buffer, rel: 'dataset' },
   vts: Array[Int],
   path: String,
   op: String,
@@ -173,24 +174,28 @@ Example stream:
 
 ```
 {
+  dataset: { $msg: 9a22ce...ff, rel: 'dataset' },
   vts: [1,0,0],
   path: '',
   op: 'declare',
   args: ['self', {members: [593ac2f...fc, 04cf02a...31, 30d204d...11]}]
 }
 {
+  dataset: { $msg: 9a22ce...ff, rel: 'dataset' },
   vts: [2,0,0],
   path: '',
   op: 'declare',
   args: ['myobject', {type: 'Map'}]
 }
 {
+  dataset: { $msg: 9a22ce...ff, rel: 'dataset' },
   vts: [3,0,0],
   path: 'myobject',
   op: 'set',
   args: ['foo', 'bar']
 }
 {
+  dataset: { $msg: 9a22ce...ff, rel: 'dataset' },
   vts: [2,1,0],
   path: 'myobject',
   op: 'set',
@@ -199,11 +204,11 @@ Example stream:
 ```
 
 
-## Planned ECOTypes
+## Planned ECO Types
 
 SSB's feeds guarantee one-time, ordered delivery of messages (within that feed). That gives us flexibility to use operation-based CRDTs.
 
-Ecotypes are also aware of the full set of nodes involved, as they are defined in the schema. In that definition, the node-set is ordered. That ordering assigns the dimensions in vector clocks and determines the order of authority in Greatest Authority Wins.
+Ecos are also aware of the full set of nodes involved, as they are defined in the schema. In that definition, the node-set is ordered. That ordering assigns the dimensions in vector clocks and determines the order of authority in Greatest Authority Wins.
 
 The `value` type is a subset of `atom` which supports a straight-forward equality. It includes null, bools, ints, doubles, and strings.
 
@@ -261,3 +266,9 @@ Behaves like the Map, but only specifies the types for child-Objects, and does n
 Nodes which have not yet received the schema update may misinterpret updates by other nodes which are operating on the new definition.
 
 This might be solved with some form of coordination (eg a version vector) so that updates are only applied once the schema has been updated.
+
+**Is it possible to detect when states have become irreconcilable?**
+
+Eg a node errors while applying an update, or a node makes a bad update and other nodes reject the message.
+
+One solution might be to publish a checksum of the current state and allow nodes to compare. To do repairs, the owner node could publish a checkpoint (a state-dump) and force all other nodes to reset to that checkpoint.
