@@ -9,8 +9,7 @@ var ssb = require('secure-scuttlebutt/create')(dbpath)
 var feed = ssb.createFeed(keys)
 
 // create dataset
-var ds = eco.dataset(ssb, feed, { members: [feed.id, bob_id, carla_id] })
-eco.declare(ds, {
+var ds = eco.dataset(ssb, feed, { members: [feed.id, bob_id, carla_id] }, {
   myobj: 'map',
   mycount: 'counter',
   myset: 'growset'
@@ -39,23 +38,31 @@ eco.declare(ds, {
 
 // listening to changes
 ds.on('change', function(key, old, new) {
-  // change 1
-  console.log(key, old, new) // => 'myobj' ['foo', 'bar'] ['foo', 'barrr']
-  // change 2
-  console.log(key, old, new) // => 'mycount' 1 2
+  console.log(key, old, new) /* =>
+  'myobj' ['foo', 'bar'] ['foo', 'barrr']  (change 1)
+  'mycount' 1 2                            (change 2)
+  */
 })
 ds.myobj.on('change', function(key, old, new) {
-  // change 1
-  console.log(key, old, new) // => 'foo' 'bar' 'barrr'
+  console.log(key, old, new) // => 'foo' 'bar' 'barrr'    (change 1)
 })
 ds.mycount.on('change', function(old, new) {
-  // change 2
-  console.log(old, new) // => 1 2
+  console.log(old, new) // => 1 2     (change 2)
 })
-var startTime = eco.getVClock(ds)
+var startTime = ds.getVClock()
 syncWithBobAndCarla(ssb, function() {
-  console.log(eco.updatedSince(ds, startTime)) // => ['myobj', 'mycount']
+  console.log(ds.updatedSince(startTime)) // => ['myobj', 'mycount']
 })
+
+// Dataset methods
+ds.declare(types)
+ds.remove(name)
+ds.on('change', function(key, old, new))
+ds.getId() // => Buffer (msg hash)
+ds.getVClock() // => [1, 6, 4]
+ds.getMembers() // => [Buffer, Buffer, Buffer] (feed ids)
+ds.getOwner() // => Buffer (feed id)
+ds.updatedSince(vectorTimestamp) => ['name', 'name', ...]
 ```
 
 
