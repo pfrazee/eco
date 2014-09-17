@@ -2,6 +2,8 @@
 
 Library of data types for building distributed applications on [Phoenix](https://github.com/pfraze/phoenix)/[SSB](https://github.com/dominictarr/secure-scuttlebutt).
 
+*This is in the early stages, so I'm trying out ideas still.*
+
 ```js
 var multicb = require('multicb')
 var eco = require('ecotypes')
@@ -16,7 +18,8 @@ var ds = eco.dataset(ssb, feed, { db: db, from: message })
 var ds = eco.dataset(ssb, feed, { dbpath: './mydb', from: message })
 
 // create new dataset
-var ds = eco.dataset(ssb, feed, { db: db, members: [feed.id, bob_id, carla_id] }, {
+var ds = eco.dataset(ssb, feed, { db: db, members: [feed.id, bob_id, carla_id] })
+ds.declare({
   myobj: 'map',
   mycount: 'counter',
   myset: 'growset'
@@ -70,7 +73,7 @@ syncWithBobAndCarla(ssb, function() {
 // API overview
 
 // Dataset methods
-ds.declare(types)
+ds.declare(types, function(err))
 ds.get(key, function(err, type))
 ds.state(function(err, vs)) // fetches state of entire dataset
 ds.remove(key, function(err))
@@ -153,8 +156,6 @@ Datasets are composed of (Eventually Consistent) Objects and Atoms. Messages are
 One Object type, the Dataset, is allowed to contain other Objects. It may include other Datasets, enabling tree-like recursion. Datasets may not include atoms, however, to avoid ambiguous semantics.
 
 New Objects are created with a `declare` operation in the Dataset that includes an id and a type declaration. Operations on the Object's value then work on its own semantics using its path (`grandparent.parent.object.method()`).
-
-*This is in the early stages, so I'm trying out ideas still.*
 
 
 ## Message Schema
