@@ -5,11 +5,18 @@ Library of data types for building distributed applications on [Phoenix](https:/
 ```js
 var multicb = require('multicb')
 var eco = require('ecotypes')
-var ssb = require('secure-scuttlebutt/create')(dbpath)
+var db = require('levelup')(dbpath)
+var ssb = require('secure-scuttlebutt/create')(ssbpath)
 var feed = ssb.createFeed(keys)
 
-// create dataset
-var ds = eco.dataset(ssb, feed, { members: [feed.id, bob_id, carla_id] }, {
+// create dataset from message
+var ds = eco.dataset(ssb, feed, { db: db, from: message })
+
+// give a dbpath and let eco create the leveldb instance
+var ds = eco.dataset(ssb, feed, { dbpath: './mydb', from: message })
+
+// create new dataset
+var ds = eco.dataset(ssb, feed, { db: db, members: [feed.id, bob_id, carla_id] }, {
   myobj: 'map',
   mycount: 'counter',
   myset: 'growset'
@@ -29,40 +36,99 @@ var ds = eco.dataset(ssb, feed, { members: [feed.id, bob_id, carla_id] }, {
 
   done(function(err) {
     // read values
-    console.log(ds.myobj.all()) // => { foo: 'bar', baz: true }
-    console.log(ds.mycount.get()) // => 1
-    console.log(ds.myset.has('bar')) // => true
-    console.log(ds.myset.all()) // => ['foo', 'bar']
+    ds.myobj.all(console.log) // => undefined { foo: 'bar', baz: true }
+    ds.mycount.get(console.log) // => undefined 1
+    ds.myset.has('bar', console.log) // => undefined true
+    ds.myset.all(console.log) // => undefined ['foo', 'bar']
+    ds.state(console.log) /* => undefined {
+      myobj: { foo: 'bar', baz: true },
+      mycount: 1,
+      myset: ['foo', 'bar']
+    } */
   })
 })
 
 // listening to changes
-ds.on('change', function(key, old, new) {
+ds.on('change', function(key, old, new, meta) {
   console.log(key, old, new) /* =>
   'myobj' ['foo', 'bar'] ['foo', 'barrr']  (change 1)
   'mycount' 1 2                            (change 2)
   */
 })
-ds.myobj.on('change', function(key, old, new) {
-  console.log(key, old, new) // => 'foo' 'bar' 'barrr'    (change 1)
+ds.myobj.on('change', function(key, old, new, meta) {
+  console.log(key, old, new) // => 'foo' 'bar' (change 1)
+  console.log(meta) // => { author: Buffer, vts: [12, 1, 0] }
 })
-ds.mycount.on('change', function(old, new) {
-  console.log(old, new) // => 1 2     (change 2)
+ds.mycount.on('change', function(old, new, meta) {
+  console.log(old, new) // => 1 2 (change 2)
 })
 var startTime = ds.getVClock()
 syncWithBobAndCarla(ssb, function() {
   console.log(ds.updatedSince(startTime)) // => ['myobj', 'mycount']
 })
 
+// API overview
+
 // Dataset methods
 ds.declare(types)
-ds.remove(name)
-ds.on('change', function(key, old, new))
+ds.get(key, function(err, type))
+ds.state(function(err, vs)) // fetches state of entire dataset
+ds.remove(key, function(err))
+ds.on('change', function(key, old, new, meta))
+ds.createChangeStream() // emits data in change events
 ds.getId() // => Buffer (msg hash)
 ds.getVClock() // => [1, 6, 4]
 ds.getMembers() // => [Buffer, Buffer, Buffer] (feed ids)
 ds.getOwner() // => Buffer (feed id)
 ds.updatedSince(vectorTimestamp) => ['name', 'name', ...]
+
+// Counter methods
+c.inc(function(err, v))
+c.dec(function(err, v))
+c.get(function(err, v))
+c.on('change', function(old, new, meta))
+
+// Counterset methods
+cs.inc(key, function(err, v))
+cs.dec(key, function(err, v))
+cs.get(key, function(err, v))
+cs.on('change', function(key, old, new, meta))
+
+// Register methods
+r.set(value, function(err))
+r.get(function(err, v, isMulti))
+r.on('change', function(old, new, meta))
+
+// Growset methods
+gs.add(value, function(err))
+gs.has(value, function(err, exists))
+gs.all(function(err, vs))
+gs.on('add', function(newMember, meta))
+
+// Onceset methods
+os.add(value, function(err))
+os.remove(value, function(err))
+os.has(value, function(err, exists))
+os.all(function(err, vs))
+os.on('change', function(old, new, meta))
+// on add, old will be empty and new will have the new value
+// on remove, old will have the old value and new will be empty
+
+// Set
+s.add(value, function(err))
+s.remove(value, function(err))
+s.has(value, function(err, exists))
+s.all(function(err, vs))
+s.on('change', function(old, new, meta))
+// on add, old will be empty and new will have the new value
+// on remove, old will have the old value and new will be empty
+
+// Map
+m.set(key, value, function(err))
+m.remove(key, function(err))
+m.get(key, function(err, v, isMulti))
+m.all(function(err, vs))
+m.on('change', function(key, old, new, meta))
 ```
 
 
