@@ -1,4 +1,4 @@
-  {
+{
   "name": "ecotypes",
   "version": "0.0.1",
   "description": "Library of data types for building distributed applications on Phoenix/SSB.",

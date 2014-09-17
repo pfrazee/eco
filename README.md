@@ -3,33 +3,41 @@
 Library of data types for building distributed applications on [Phoenix](https://github.com/pfraze/phoenix)/[SSB](https://github.com/dominictarr/secure-scuttlebutt).
 
 ```js
-var ecotypes = require('ecotypes')
+var multicb = require('multicb')
+var eco = require('ecotypes')
 var ssb = require('secure-scuttlebutt/create')(dbpath)
+var feed = ssb.createFeed(keys)
 
 // create dataset
-var ds = ecotypes.dataset(ssb, { members: [alicehash, bobhash, carlahash] })
-ds.declare({
+var ds = eco.dataset(ssb, feed, { members: [feed.id, bob_id, carla_id] })
+eco.declare(ds, {
   myobj: 'map',
-  mycount: 'counter'
+  mycount: 'counter',
+  myset: 'growset'
+}, function(err) {
+  var done = multicb()
+
+  // set values
+  ds.myobj.set({ foo: 'bar' }, done())
+  ds.myobj.set('baz', true, done())
+  
+  ds.mycount.inc(done())
+  ds.mycount.inc(done())
+  ds.mycount.dec(done())
+
+  ds.myset.add('foo', done())
+  ds.myset.add('bar', done())
+
+  done(function(err) {
+    // read values
+    console.log(ds.myobj.all()) // => { foo: 'bar', baz: true }
+    console.log(ds.mycount.get()) // => 1
+    console.log(ds.myset.has('bar')) // => true
+    console.log(ds.myset.all()) // => ['foo', 'bar']
+  })
 })
 
-// set values
-ds.myobj.set({ foo: 'bar' })
-ds.myobj.set('baz', true)
-console.log(ds.myobj.all()) // => { foo: 'bar', baz: true }
-
-ds.mycount.inc()
-ds.mycount.inc()
-ds.mycount.dec()
-console.log(ds.mycount.get()) // => 1
-
-ds.declare('myset', 'growset')
-ds.myset.add('foo')
-ds.myset.add('bar')
-console.log(ds.myset.has('bar')) // => true
-console.log(ds.myset.all()) // => ['foo', 'bar']
-
-// sync with network and listen to changes
+// listening to changes
 ds.on('change', function(key, old, new) {
   // change 1
   console.log(key, old, new) // => 'myobj' ['foo', 'bar'] ['foo', 'barrr']
@@ -44,10 +52,10 @@ ds.mycount.on('change', function(old, new) {
   // change 2
   console.log(old, new) // => 1 2
 })
-doNetworkSync(ssb)
-
-//
-
+var startTime = eco.getVClock(ds)
+syncWithBobAndCarla(ssb, function() {
+  console.log(eco.updatedSince(ds, startTime)) // => ['myobj', 'mycount']
+})
 ```
 
 
@@ -125,49 +133,49 @@ Ecotypes are also aware of the full set of nodes involved, as they are defined i
 
 The `value` type is a subset of `atom` which supports a straight-forward equality. It includes null, bools, ints, doubles, and strings.
 
-**`Counter` - [Op-based Counter](https://github.com/pfraze/crdt_notes#op-based-counter)**
+**Counter - [Op-based Counter](https://github.com/pfraze/crdt_notes#op-based-counter)**
 
-Methods: `inc()`, `dec()`, `get() -> integer`
+Operations: `inc()`, `dec()`, `get() -> integer`
 
-**`CounterSet` - [PN Set](https://github.com/pfraze/crdt_notes#pn-set)**
+**CounterSet - [PN Set](https://github.com/pfraze/crdt_notes#pn-set)**
 
-Methods: `inc(value)`, `dec(value)`, `get(value) -> integer`, `all() -> object`
+Operations: `inc(value)`, `dec(value)`, `get(value) -> integer`, `all() -> object`
 
 A set of counters.
 
-**`Register` - [Multi-Value Register](https://github.com/pfraze/crdt_notes#multi-value-register-mv-register)**
+**Register - [Multi-Value Register](https://github.com/pfraze/crdt_notes#multi-value-register-mv-register)**
 
-Methods: `set(value)`, `get() -> atom`, `isMV() -> bool`
+Operations: `set(value)`, `get() -> atom`, `isMV() -> bool`
 
 Multi-value is preferable to LWW because conflicts only occur when multiple users assign concurrently, and so the application/users may want to resolve. When splits occur, the values are ordered in an array by the node-set's ordering.
 
-**`GrowSet` - [Grow-Only Set](https://github.com/pfraze/crdt_notes#grow-only-set-g-set)**
+**GrowSet - [Grow-Only Set](https://github.com/pfraze/crdt_notes#grow-only-set-g-set)**
 
-Methods: `add(value)`, `has(value) -> bool`, `all() -> array`
+Operations: `add(value)`, `has(value) -> bool`, `all() -> array`
 
 For sets which only ever grow.
 
-**`OnceSet` - [Two-Phase Set](https://github.com/pfraze/crdt_notes#2p-set)**
+**OnceSet - [Two-Phase Set](https://github.com/pfraze/crdt_notes#2p-set)**
 
-Methods: `add(value)`, `remove(value)`, `has(value) -> bool`, `all() -> array`
+Operations: `add(value)`, `remove(value)`, `has(value) -> bool`, `all() -> array`
 
 For sets which guarantee that an item can only be added (and removed) once.
 
-**`Set` - [Observed-Removed Set](https://github.com/pfraze/crdt_notes#or-set)**
+**Set - [Observed-Removed Set](https://github.com/pfraze/crdt_notes#or-set)**
 
-Methods: `add(value)`, `remove(value)`, `has(value) -> bool`, `all() -> array`
+Operations: `add(value)`, `remove(value)`, `has(value) -> bool`, `all() -> array`
 
 For sets with no unique guarantees (a typical set).
 
-**`Map` - Observed-Removed, Multi-Value Map**
+**Map - Observed-Removed, Multi-Value Map**
 
-Methods: `set(value, atom)`, `get(value) -> atom`, `all() -> object`, `remove(value)`, `isMV(value) -> bool`
+Operations: `set(value, atom)`, `get(value) -> atom`, `all() -> object`, `remove(value)`, `isMV(value) -> bool`
 
 Behaves like an OR Set where the element identity is `(key, uuid)`. The `set` operation removes then adds the value at `key`. Concurrent removes are idempotent; concurrent add/remove are independent due to the uuid; and concurrent adds join into a multi-value, as in the MV Register.
 
-**`Dataset` - Observed-Removed, Greatest-Authority-Wins Map**
+**Dataset - Observed-Removed, Greatest-Authority-Wins Map**
 
-Methods: `declare(value, atom)`, `remove(value)`
+Operations: `declare(value, atom)`, `remove(value)`
 
 Behaves like the Map, but only specifies the types for child-Objects, and does not support Multi-Value state. Objects may be redeclared, but (depending on the change) the redeclaration may destroy the current value. In the event of a conflict, the node with the greatest authority (defined by the ordered participants list) wins.
 
