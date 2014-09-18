@@ -24,31 +24,52 @@ ds.declare({
   mycount: 'counter',
   myset: 'growset'
 }, function(err) {
-  var done = multicb()
-
-  // set values
-  ds.myobj.set({ foo: 'bar' }, done())
-  ds.myobj.set('baz', true, done())
   
-  ds.mycount.inc(done())
-  ds.mycount.inc(done())
-  ds.mycount.dec(done())
-
-  ds.myset.add('foo', done())
-  ds.myset.add('bar', done())
-
-  done(function(err) {
-    // read values
-    ds.myobj.all(console.log) // => undefined { foo: 'bar', baz: true }
-    ds.mycount.get(console.log) // => undefined 1
-    ds.myset.has('bar', console.log) // => undefined true
-    ds.myset.all(console.log) // => undefined ['foo', 'bar']
-    ds.state(console.log) /* => undefined {
-      myobj: { foo: 'bar', baz: true },
-      mycount: 1,
-      myset: ['foo', 'bar']
+  // read current state
+  ds.state(function(err, state) {
+    console.log(state) /* => {
+      myobj: {},
+      mycount: 0,
+      myset: []
     } */
+
+    // update state
+    state.myobj.baz = true
+    state.myobj.foo = 'bar'
+    state.mycount++
+    state.myset.push('foo')
+    state.myset.push('bar')
+
+    // write updates - diffs with the current state and generates operations
+    ds.write(state, function(err, state) {
+      console.log(state) /* => {
+        myobj: { baz: true, foo: 'bar' },
+        mycount: 1,
+        myset: ['foo', 'bar']
+      } */
+
+      // semantics of the types are maintained
+      state.myset = ['baz'] // myset is a "GrowSet"
+      ds.write(state, function(err, state) {
+        console.log(state.myset) // => ['foo', 'bar', 'baz']
+      })
+    })
   })
+})
+
+// using the individual object apis
+var done = multicb()
+ds.myobj.set('baz', true, done())
+ds.myobj.update({ foo: 'bar' }, done())
+ds.mycount.inc(done())
+ds.myset.add('foo', done())
+ds.myset.add('bar', done())
+done(function(err) {
+  // read values
+  ds.myobj.all(console.log) // => undefined { foo: 'bar', baz: true }
+  ds.mycount.get(console.log) // => undefined 1
+  ds.myset.has('bar', console.log) // => undefined true
+  ds.myset.all(console.log) // => undefined ['foo', 'bar']
 })
 
 // listening to changes
@@ -59,7 +80,7 @@ ds.on('change', function(key, old, new, meta) {
   */
 })
 ds.myobj.on('change', function(key, old, new, meta) {
-  console.log(key, old, new) // => 'foo' 'bar' (change 1)
+  console.log(key, old, new) // => 'foo' 'bar' 'barrr' (change 1)
   console.log(meta) // => { author: Buffer, vts: [12, 1, 0] }
 })
 ds.mycount.on('change', function(old, new, meta) {
@@ -73,12 +94,14 @@ syncWithBobAndCarla(ssb, function() {
 // API overview
 
 // Dataset methods
-ds.declare(types, function(err))
-ds.get(key, function(err, type))
+ds.declare(types, function(err)) // declare multiple types
+ds.declare(name, type, function(err)) // declare 1 type
+ds.get(key) // gets the object, useful when the object name collides with the dataset api (eg an object named 'declare')
 ds.remove(key, function(err))
 ds.state(function(err, vs)) // fetches state of entire dataset
+ds.write(vs, function(err, vs)) // diffs with the current state to generate the update ops
 ds.on('change', function(key, old, new, meta))
-ds.createChangeStream() // emits data in change events
+ds.createChangeStream() // emits the change events
 ds.getId() // => Buffer (msg hash)
 ds.getVClock() // => [1, 6, 4]
 ds.getMembers() // => [Buffer, Buffer, Buffer] (feed ids)
@@ -86,14 +109,14 @@ ds.getOwner() // => Buffer (feed id)
 ds.updatedSince(vectorTimestamp) => ['name', 'name', ...]
 
 // Counter methods
-c.inc(function(err, v))
-c.dec(function(err, v))
+c.inc(amt, function(err, v)) // amt is optional, defaults to 1
+c.dec(amt, function(err, v)) // amt is optional, defaults to 1
 c.get(function(err, v))
 c.on('change', function(old, new, meta))
 
 // Counterset methods
-cs.inc(key, function(err, v))
-cs.dec(key, function(err, v))
+cs.inc(key, amt, function(err, v)) // amt is optional, defaults to 1
+cs.dec(key, amt, function(err, v)) // amt is optional, defaults to 1
 cs.get(key, function(err, v))
 cs.on('change', function(key, old, new, meta))
 
@@ -128,6 +151,7 @@ s.on('change', function(old, new, meta))
 
 // Map
 m.set(key, value, function(err))
+m.update(obj, function(err)) // set multiple values at once
 m.remove(key, function(err))
 m.get(key, function(err, v, isMulti))
 m.all(function(err, vs))
@@ -162,7 +186,7 @@ New Objects are created with a `declare` operation in the Dataset that includes 
 
 ```
 {
-  dataset: { $msg: Buffer, rel: 'dataset' },
+  dataset: { $msg: Buffer, $rel: 'eco-dataset' },
   vts: Array[Int],
   path: String,
   op: String,
@@ -174,28 +198,34 @@ Example stream:
 
 ```
 {
-  dataset: { $msg: 9a22ce...ff, rel: 'dataset' },
+  dataset: { $msg: 9a22ce...ff, $rel: 'eco-dataset' },
   vts: [1,0,0],
   path: '',
   op: 'declare',
-  args: ['self', {members: [593ac2f...fc, 04cf02a...31, 30d204d...11]}]
+  args: ['self', {
+    members: [
+      { $feed: 593ac2f...fc, $rel: 'eco-member' },
+      { $feed: 04cf02a...31, $rel: 'eco-member' },
+      { $feed: 30d204d...11, $rel: 'eco-member' }
+    ]
+  }]
 }
 {
-  dataset: { $msg: 9a22ce...ff, rel: 'dataset' },
+  dataset: { $msg: 9a22ce...ff, $rel: 'eco-dataset' },
   vts: [2,0,0],
   path: '',
   op: 'declare',
   args: ['myobject', {type: 'Map'}]
 }
 {
-  dataset: { $msg: 9a22ce...ff, rel: 'dataset' },
+  dataset: { $msg: 9a22ce...ff, $rel: 'eco-dataset' },
   vts: [3,0,0],
   path: 'myobject',
   op: 'set',
   args: ['foo', 'bar']
 }
 {
-  dataset: { $msg: 9a22ce...ff, rel: 'dataset' },
+  dataset: { $msg: 9a22ce...ff, $rel: 'eco-dataset' },
   vts: [2,1,0],
   path: 'myobject',
   op: 'set',
@@ -214,11 +244,11 @@ The `value` type is a subset of `atom` which supports a straight-forward equalit
 
 **Counter - [Op-based Counter](https://github.com/pfraze/crdt_notes#op-based-counter)**
 
-Operations: `inc()`, `dec()`, `get() -> integer`
+Operations: `inc(integer)`, `dec(integer)`, `get() -> integer`
 
 **CounterSet - [PN Set](https://github.com/pfraze/crdt_notes#pn-set)**
 
-Operations: `inc(value)`, `dec(value)`, `get(value) -> integer`, `all() -> object`
+Operations: `inc(value, integer)`, `dec(value, integer)`, `get(value) -> integer`, `all() -> object`
 
 A set of counters.
 
@@ -267,8 +297,14 @@ Nodes which have not yet received the schema update may misinterpret updates by 
 
 This might be solved with some form of coordination (eg a version vector) so that updates are only applied once the schema has been updated.
 
+A simple solution would disallow objects to be changed or removed after they are added (the dataset would be grow-only).
+
 **Is it possible to detect when states have become irreconcilable?**
 
 Eg a node errors while applying an update, or a node makes a bad update and other nodes reject the message.
 
 One solution might be to publish a checksum of the current state and allow nodes to compare. To do repairs, the owner node could publish a checkpoint (a state-dump) and force all other nodes to reset to that checkpoint.
+
+**Can updates be batched in SSB messages?**
+
+You could decrease the SSB overhead by grouping multiple ECO messages in one SSB message. The simplest solution puts multiple ECO messages in an ordered array. Whether this makes a significant enough difference or has any kind of drawback, I'm not sure.
