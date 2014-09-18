@@ -12,10 +12,15 @@ var ssb = require('secure-scuttlebutt/create')(ssbpath)
 var feed = ssb.createFeed(keys)
 
 // load object from message
-var obj = eco.load(db, ssb, feed, messageid)
+var obj = eco.open(db, ssb, feed, messageid)
 
 // create new object
-var obj = eco.create(db, ssb, feed, { members: [feed.id, bob_id, carla_id] })
+var obj = eco.create(db, ssb, feed, { members: [feed.id, bob_id, carla_id] }, function(err, id) {
+  console.log(id)
+  // 40cd2e15...32 (message id)
+})
+
+// define the object
 obj.declare({
   mymap: 'map',
   mycount: 'counter',
@@ -71,8 +76,8 @@ syncWithBobAndCarla(ssb, function() {
 })
 
 // API overview
-var object = eco.create(leveldb, ssb, feed, { members: [feedid, feedid, ... feedid] }, function(err))
-var object = eco.load(leveldb, ssb, feed, messageid, function(err))
+var object = eco.create(leveldb, ssb, feed, { members: [feedid, feedid, ... feedid] }, function(err, id))
+var object = eco.open(leveldb, ssb, feed, messageid, function(err))
 
 object.declare(types, function(err)) // declare multiple members
 object.typeof(key) // => type definition
