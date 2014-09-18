@@ -27,11 +27,13 @@ ds.declare({
   
   // read current state
   ds.state(function(err, state) {
-    console.log(state) /* => {
+    console.log(state) /*
+    {
       myobj: {},
       mycount: 0,
       myset: []
-    } */
+    }
+    */
 
     // update state
     state.myobj.baz = true
@@ -40,122 +42,69 @@ ds.declare({
     state.myset.push('foo')
     state.myset.push('bar')
 
-    // write updates - diffs with the current state and generates operations
+    // write new state
     ds.write(state, function(err, state) {
-      console.log(state) /* => {
+      console.log(state) /*
+      {
         myobj: { baz: true, foo: 'bar' },
         mycount: 1,
         myset: ['foo', 'bar']
-      } */
+      }
+      */
 
       // semantics of the types are maintained
-      state.myset = ['baz'] // myset is a "GrowSet"
+      state.myset = ['baz'] // myset is a "GrowSet", so 'foo' and 'bar' cant be removed
       ds.write(state, function(err, state) {
-        console.log(state.myset) // => ['foo', 'bar', 'baz']
+        console.log(state.myset)
+        // ['foo', 'bar', 'baz']
       })
     })
   })
 })
 
-// using the individual object apis
-var done = multicb()
-ds.myobj.set('baz', true, done())
-ds.myobj.update({ foo: 'bar' }, done())
-ds.mycount.inc(done())
-ds.myset.add('foo', done())
-ds.myset.add('bar', done())
-done(function(err) {
-  // read values
-  ds.myobj.all(console.log) // => undefined { foo: 'bar', baz: true }
-  ds.mycount.get(console.log) // => undefined 1
-  ds.myset.has('bar', console.log) // => undefined true
-  ds.myset.all(console.log) // => undefined ['foo', 'bar']
-})
-
 // listening to changes
 ds.on('change', function(key, old, new, meta) {
-  console.log(key, old, new) /* =>
+  console.log(key, old, new) /*
   'myobj' ['foo', 'bar'] ['foo', 'barrr']  (change 1)
   'mycount' 1 2                            (change 2)
   */
 })
 ds.myobj.on('change', function(key, old, new, meta) {
-  console.log(key, old, new) // => 'foo' 'bar' 'barrr' (change 1)
-  console.log(meta) // => { author: Buffer, vts: [12, 1, 0] }
+  console.log(key, old, new)
+  // 'foo' 'bar' 'barrr'                   (change 1)
+  console.log(meta)
+  // { author: Buffer, vts: [12, 1, 0] }
 })
 ds.mycount.on('change', function(old, new, meta) {
-  console.log(old, new) // => 1 2 (change 2)
+  console.log(old, new)
+  // 1 2                                   (change 2)
 })
 var startTime = ds.getVClock()
 syncWithBobAndCarla(ssb, function() {
-  console.log(ds.updatedSince(startTime)) // => ['myobj', 'mycount']
+  console.log(ds.updatedSince(startTime))
+  // ['myobj', 'mycount']
 })
 
 // API overview
+eco.dataset(ssb, feed, opts)
 
 // Dataset methods
 ds.declare(types, function(err)) // declare multiple types
 ds.declare(name, type, function(err)) // declare 1 type
-ds.get(key) // gets the object, useful when the object name collides with the dataset api (eg an object named 'declare')
-ds.remove(key, function(err))
+ds.typeof(name) // fetches the type description of the value
+ds.remove(name, function(err))
+
 ds.state(function(err, vs)) // fetches state of entire dataset
 ds.write(vs, function(err, vs)) // diffs with the current state to generate the update ops
+
 ds.on('change', function(key, old, new, meta))
 ds.createChangeStream() // emits the change events
+
 ds.getId() // => Buffer (msg hash)
 ds.getVClock() // => [1, 6, 4]
 ds.getMembers() // => [Buffer, Buffer, Buffer] (feed ids)
 ds.getOwner() // => Buffer (feed id)
 ds.updatedSince(vectorTimestamp) => ['name', 'name', ...]
-
-// Counter methods
-c.inc(amt, function(err, v)) // amt is optional, defaults to 1
-c.dec(amt, function(err, v)) // amt is optional, defaults to 1
-c.get(function(err, v))
-c.on('change', function(old, new, meta))
-
-// Counterset methods
-cs.inc(key, amt, function(err, v)) // amt is optional, defaults to 1
-cs.dec(key, amt, function(err, v)) // amt is optional, defaults to 1
-cs.get(key, function(err, v))
-cs.on('change', function(key, old, new, meta))
-
-// Register methods
-r.set(value, function(err))
-r.get(function(err, v, isMulti))
-r.on('change', function(old, new, meta))
-
-// Growset methods
-gs.add(value, function(err))
-gs.has(value, function(err, exists))
-gs.all(function(err, vs))
-gs.on('add', function(newMember, meta))
-
-// Onceset methods
-os.add(value, function(err))
-os.remove(value, function(err))
-os.has(value, function(err, exists))
-os.all(function(err, vs))
-os.on('change', function(old, new, meta))
-// on add, old will be empty and new will have the new value
-// on remove, old will have the old value and new will be empty
-
-// Set
-s.add(value, function(err))
-s.remove(value, function(err))
-s.has(value, function(err, exists))
-s.all(function(err, vs))
-s.on('change', function(old, new, meta))
-// on add, old will be empty and new will have the new value
-// on remove, old will have the old value and new will be empty
-
-// Map
-m.set(key, value, function(err))
-m.update(obj, function(err)) // set multiple values at once
-m.remove(key, function(err))
-m.get(key, function(err, v, isMulti))
-m.all(function(err, vs))
-m.on('change', function(key, old, new, meta))
 ```
 
 
