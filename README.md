@@ -12,7 +12,7 @@ var ssb = require('secure-scuttlebutt/create')(ssbpath)
 var feed = ssb.createFeed(keys)
 
 // load object from message
-var obj = eco.load(db, ssb, feed, messagehash)
+var obj = eco.load(db, ssb, feed, messageid)
 
 // create new object
 var obj = eco.create(db, ssb, feed, { members: [feed.id, bob_id, carla_id] })
@@ -71,12 +71,11 @@ syncWithBobAndCarla(ssb, function() {
 })
 
 // API overview
-var object = eco.create(leveldb, ssb, feed, { members: [feedid, feedid, ... feedid] })
-var object = eco.load(leveldb, ssb, feed, messagehash)
+var object = eco.create(leveldb, ssb, feed, { members: [feedid, feedid, ... feedid] }, function(err))
+var object = eco.load(leveldb, ssb, feed, messageid, function(err))
 
 object.declare(types, function(err)) // declare multiple members
-object.declare(key, type, function(err)) // declare 1 member
-object.typeof(key) // fetches the type description of the value
+object.typeof(key) // => type definition
 
 object.get(function(err, vs)) // fetches state of the object
 object.put(vs, function(err, vs)) // diffs with the current state to generate the update ops
