@@ -223,7 +223,24 @@ Operations: `declare(value, atom)`
 Behaves like the Map, but only specifies the types for child-Objects. If there are concurrent adds for the same key, greatest-authority wins.
 
 
-## Open questions
+## How to use eco
+
+Eco works like a NoSQL database, but its data is published on the users' feeds. This means that anybody can subscribe to, reconstruct, and rehost the objects. Only the object's members can publish changes.
+
+Objects in ECO can change without input by the local user. You'll want to watch for changes so you can react to the updates. `Get()` is cheap because it's just a clone of data in memory, so don't hesitate to use it. Be sure to:
+
+ - Always get a fresh copy of the state (`get()`) after asyncronous work has been done.
+ - When making changes to state, get a fresh copy, make the changes, and write again before yielding the thread. `Get()` is cheap!
+
+There's no guarantee that other users access the Object using the same code that you do. Be sure to:
+
+ - Sanitize values in the objects, eg. for HTML and XSS attacks.
+ - Watch for values that may be attacks, and let the users know when an attack has been attempted.
+
+
+## Open development questions
+
+These are topics about eco that have not yet been decided.
 
 **Should the schema be allowed to change after publishing?**
 
@@ -231,7 +248,7 @@ Nodes which have not yet received the schema update may misinterpret updates by 
 
 This might be solved with some form of coordination (eg a version vector) so that updates are only applied once the schema has been updated.
 
-Currently, ECO disallows CRDTs to be changed or removed after they are added (the object's crdts are grow-only).
+Currently, ECO disallows CRDTs to be changed or removed after they are added (the object's crdts are grow-only). Add-messages still need to happen before operations are allowed to execute; operations that arrive before their add-message need to be buffered.
 
 **Is it possible to detect when states have become irreconcilable?**
 
@@ -243,4 +260,4 @@ One solution might be to publish a checksum of the current state and allow nodes
 
 You could decrease the SSB overhead by grouping multiple ECO messages in one SSB message. The simplest solution puts multiple ECO messages in an ordered array. Whether this makes a significant enough difference or has any kind of drawback, I'm not sure.
 
-**Should non-owner participants be allowed to declare CRDTs?**
+**Should non-owner members be allowed to declare CRDTs?**

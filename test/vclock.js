@@ -25,6 +25,11 @@ module.exports = function(opts) {
     t.equal(0, vc.compare([1, 1], [1, 0]))
     t.equal(0, vc.compare([1, 2, 3], [2, 3, 0]))
 
+    t.equal(true,  vc.test([0], '<', [1]))
+    t.equal(false, vc.test([0], '>', [1]))
+    t.equal(true,  vc.test([1], '>', [0]))
+    t.equal(false, vc.test([1], '<', [0]))
+
     t.end()
   })
   tape('merge left', function(t) {
