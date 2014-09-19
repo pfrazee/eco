@@ -12,23 +12,22 @@ var ssb = require('secure-scuttlebutt/create')(ssbpath)
 var feed = ssb.createFeed(keys)
 
 // load object from message
-var obj = eco.open(db, ssb, feed, messageid)
+eco.open(db, ssb, feed, messageid, cb)
 
 // create new object
-var obj = eco.create(db, ssb, feed, { members: [feed.id, bob_id, carla_id] }, function(err, id) {
-  console.log(id)
+eco.create(db, ssb, feed, { members: [feed.id, bob_id, carla_id] }, function(err, obj) {
+  console.log(obj.getId())
   // 40cd2e15...32 (message id)
-})
 
-// define the object
-obj.declare({
-  mymap: 'map',
-  mycount: 'counter',
-  myset: 'growset'
-}, function(err) {
-  
-  // read current state
-  obj.get(function(err, state) {
+  // define the object
+  obj.declare({
+    mymap: 'map',
+    mycount: 'counter',
+    myset: 'growset'
+  }, function(err) {
+    
+    // read current state
+    var state = obj.get()
     console.log(state) /*
     {
       mymap: {},
@@ -82,7 +81,7 @@ var object = eco.open(leveldb, ssb, feed, messageid, function(err))
 object.declare(types, function(err)) // declare multiple members
 object.typeof(key) // => type definition
 
-object.get(function(err, vs)) // fetches state of the object
+object.get() // fetches a copy of the object state
 object.put(vs, function(err, vs)) // diffs with the current state to generate the update ops
 
 object.on('change', function(key, old, new, meta))
@@ -123,7 +122,7 @@ New CRDTs are created with a `declare` operation in the Object that includes a k
 
 ```
 {
-  object: { $msg: Buffer, $rel: 'eco-object' },
+  obj: { $msg: Buffer, $rel: 'eco-object' },
   vts: Array[Int],
   path: String,
   op: String,
@@ -135,11 +134,9 @@ Example stream:
 
 ```
 {
-  object: { $msg: 9a22ce...ff, $rel: 'eco-object' },
   vts: [1,0,0],
-  path: '',
-  op: 'declare',
-  args: ['self', {
+  op: 'init',
+  args: [{
     members: [
       { $feed: 593ac2f...fc, $rel: 'eco-member' },
       { $feed: 04cf02a...31, $rel: 'eco-member' },
@@ -148,21 +145,21 @@ Example stream:
   }]
 }
 {
-  object: { $msg: 9a22ce...ff, $rel: 'eco-object' },
+  obj: { $msg: 9a22ce...ff, $rel: 'eco-object' },
   vts: [2,0,0],
   path: '',
   op: 'declare',
   args: ['myobject', {type: 'map'}]
 }
 {
-  object: { $msg: 9a22ce...ff, $rel: 'eco-object' },
+  obj: { $msg: 9a22ce...ff, $rel: 'eco-object' },
   vts: [3,0,0],
   path: 'myobject',
   op: 'set',
   args: ['foo', 'bar']
 }
 {
-  object: { $msg: 9a22ce...ff, $rel: 'eco-object' },
+  obj: { $msg: 9a22ce...ff, $rel: 'eco-object' },
   vts: [2,1,0],
   path: 'myobject',
   op: 'set',
