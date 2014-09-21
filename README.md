@@ -12,10 +12,10 @@ var ssb = require('secure-scuttlebutt/create')(ssbpath)
 var feed = ssb.createFeed(keys)
 
 // load object from message
-eco.open(db, ssb, feed, messageid, cb)
+eco.open(db, feed, messageid, cb)
 
 // create new object
-eco.create(db, ssb, feed, { members: [feed.id, bob_id, carla_id] }, function(err, obj) {
+eco.create(db, feed, { members: [feed.id, bob_id, carla_id] }, function(err, obj) {
   console.log(obj.getId())
   // 40cd2e15...32 (message id)
 
@@ -69,20 +69,29 @@ obj.on('change', function(key, old, new, meta) {
   */
 })
 var startTime = obj.getVClock()
-syncWithBobAndCarla(ssb, function() {
+obj.applyMessages(recentMessages, function(err, changes) {
+  console.log(changes) /*
+  [
+    ['mymap', ['foo', 'bar'], ['foo', 'barrr'], { author: ..., authi: ..., vts: ... }],
+    ['mycount', 1, 2, { author: ..., authi: ..., vts: ... }]
+  ]
+  */
   console.log(obj.updatedSince(startTime))
   // ['mymap', 'mycount']
 })
 
 // API overview
-var object = eco.create(leveldb, ssb, feed, { members: [feedid, feedid, ... feedid] }, function(err, id))
-var object = eco.open(leveldb, ssb, feed, messageid, function(err))
+var object = eco.create(leveldb, feed, { members: [feedid, feedid, ... feedid] }, function(err, id))
+var object = eco.open(leveldb, feed, messageid, function(err))
 
-object.declare(types, function(err)) // declare multiple members
+object.declare(types, function(err, changes)) // declare multiple members
 object.typeof(key) // => type definition
 
 object.get() // fetches a copy of the object state
-object.put(vs, function(err, vs)) // diffs with the current state to generate the update ops
+object.put(vs, function(err, changes)) // diffs with the current state to generate the update ops
+
+object.applyMessage(message, function(err, key, old, new, meta)) // run the update message (message should come from ssb)
+object.applyMessages(messages, function(err, changes)) // batch apply
 
 object.on('change', function(key, old, new, meta))
 object.createChangeStream() // emits the change events
