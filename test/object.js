@@ -346,6 +346,7 @@ module.exports = function(opts) {
   require('./types/onceset')({})
   require('./types/register')({})
   require('./types/set')({})
+  require('./types/map')({})
 }
 
 if(!module.parent)

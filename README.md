@@ -1,8 +1,8 @@
-# Eventually-Consistent Objects
+# Eventually-Consistent (Distributed) Objects
 
-Library of data types for building distributed applications on [Phoenix](https://github.com/pfraze/phoenix)/[SSB](https://github.com/dominictarr/secure-scuttlebutt).
+A storage toolset building distributed applications on [Phoenix](https://github.com/pfraze/phoenix)/[SSB](https://github.com/dominictarr/secure-scuttlebutt). Behaves like a NoSQL document store where the values merge predictably (and without application involvement) when two users make concurrent changes.
 
-*This is in the early stages, so I'm trying out ideas still.*
+**Development Status**: API unstable. All planned types (below) are implemented; currently improving the test suite and refining the library's semantics.
 
 ```js
 var multicb = require('multicb')
@@ -168,9 +168,13 @@ The `value` type is a subset of `atom` which supports a straight-forward equalit
 
 Operations: `inc(integer)`, `dec(integer)`
 
+Storage overhead: no additional
+
 **CounterSet - [PN Set](https://github.com/pfraze/crdt_notes#pn-set)**
 
 Operations: `inc(value, integer)`, `dec(value, integer)`
+
+Storage overhead: no additional
 
 A set of counters.
 
@@ -180,29 +184,39 @@ Operations: `set(value)`
 
 Single-value register. The most recent value is taken. Concurrent writes are resolved by taking the value from the node with greatest authority.
 
+Storage overhead: no additional
+
 **GrowSet - [Grow-Only Set](https://github.com/pfraze/crdt_notes#grow-only-set-g-set)**
 
 Operations: `add(value)`
 
 For sets which only ever grow.
 
+Storage overhead: no additional
+
 **OnceSet - [Two-Phase Set](https://github.com/pfraze/crdt_notes#2p-set)**
 
 Operations: `add(value)`, `remove(value)`
+
+Storage overhead: tombstone set
 
 For sets which guarantee that an item can only be added (and removed) once.
 
 **Set - [Observed-Removed Set](https://github.com/pfraze/crdt_notes#or-set)**
 
-Operations: `add(value)`, `remove(value)`
+Operations: `add(value, addTag)`, `remove(value, removeTags)`
+
+Storage overhead: tombstone set for tags (currently ~15 bytes per `remove` operation)
 
 For sets with no unique guarantees (a typical set).
 
 **Map - Observed-Removed, Greatest-Authority-Wins Map**
 
-Operations: `set(value, atom)`, `remove(value)`
+Operations: `set(value, atom, addTag, removeTags)`
 
-Behaves like an OR Set where the element identity is `(key, uuid)`. The `set` operation removes then adds the value at `key`. Concurrent removes are idempotent; concurrent add/remove are independent due to the uuid; and concurrent adds are greatest-authority wins.
+Storage overhead: tombstone set for tags (currently ~15 bytes per `set` operation)
+
+Behaves like an OR Set where the element identity is `(key, uuid)`. A set operation removes any current tags then sets the value at `key` with a new tag. Concurrent removes are idempotent; concurrent add/remove are independent due to the uuid; and concurrent adds are greatest-authority wins.
 
 **Object - Grow-Only, Greatest-Authority-Wins Map**
 
@@ -261,3 +275,11 @@ That interface update wouldn't guarantee once-and-only-once however. Even if SSB
 One solution is to check the update-author's dimension in the vector clocks of the state and of the update-message. This would not protect the application from dropping messages, but it would ensure that messages are applied once at most.
 
 Another alternative is to include a link to the previous update of the given value in the update message (a causal dependency link). ECO would track the IDs of applied messages. If a causal dependency has not yet been applied, it would be fetched and applied first. (This would not be necessary for all types -- for instance, the register can ignore past updates so long as it has the most recent, and the OR Set makes no change if the tag has already been observed.)
+
+**Is there a more efficient alternative to tombstone sets?**
+
+See [The ORSWOT in Riak 2.0](https://github.com/pfraze/crdt_notes#the-orswot-in-riak-20)
+
+**Is there a more efficient timestamp for Observed-Removed tags?**
+
+Currently using `<node index>-<timestamp>` which ranges 15-20 bytes per tag.
