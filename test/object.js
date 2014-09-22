@@ -345,6 +345,7 @@ module.exports = function(opts) {
   require('./types/growset')({})
   require('./types/onceset')({})
   require('./types/register')({})
+  require('./types/set')({})
 }
 
 if(!module.parent)
