@@ -343,6 +343,7 @@ module.exports = function(opts) {
   require('./types/counter')({})
   require('./types/counterset')({})
   require('./types/growset')({})
+  require('./types/onceset')({})
 }
 
 if(!module.parent)
