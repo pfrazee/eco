@@ -16,7 +16,7 @@ exports.makefeed = function() {
         message: message,
         author: this.id
       }
-      this.addExisting(mid, msg)
+      this.addExisting(msg)
       setImmediate(function() { cb(null, msg, mid) })
     },
     get: function(id, cb) { // :TODO: a function not yet in ssb, but probably needed
@@ -30,8 +30,10 @@ exports.makefeed = function() {
       err.notFound = true
       cb(err)
     },
-    addExisting: function(mid, msg) { // non-ssb function used to mimic replication
-      this.msgMap[mid.toString('hex')] = this.msgs.length
+    addExisting: function(msg) { // non-ssb function used to mimic replication
+      if (msg.id.toString('hex') in this.msgMap)
+        return
+      this.msgMap[msg.id.toString('hex')] = this.msgs.length
       this.msgs.push(msg)
     },
     msgs: [],

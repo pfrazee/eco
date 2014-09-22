@@ -270,3 +270,7 @@ One solution might be to publish a checksum of the current state and allow nodes
 You could decrease the SSB overhead by grouping multiple ECO messages in one SSB message. The simplest solution puts multiple ECO messages in an ordered array. Whether this makes a significant enough difference or has any kind of drawback, I'm not sure.
 
 **Should non-owner members be allowed to declare CRDTs?**
+
+**How should the app guarantee once-and-only-once message delivery?**
+
+SSB ensures that messages can't enter the feed more than once, but ECO relies on the application to apply the messages, and an app could re-apply a message and cause a failure. Is there a good way to take that concern away from application developers?

@@ -115,10 +115,9 @@ module.exports = function(opts) {
     eco.create(db1, feed1, { members: [feed1.id, feed2.id] }, function(err, obj1) {
       if (err) throw err
 
-      // "replicate" the feeds
-      feed1.msgs.forEach(function(msg) {
-        feed2.addExisting(msg.id, msg)
-      })
+      // replicate the feeds
+      console.log('replicating feed1 to feed2')
+      feed1.msgs.forEach(feed2.addExisting.bind(feed2))
 
       // recreate the object
       eco.open(db2, feed2, obj1.getId(), function(err, obj2) {
@@ -225,10 +224,9 @@ module.exports = function(opts) {
       }, function(err, changes) {
         if (err) throw err
 
-        // "replicate" the feeds
-        feed1.msgs.forEach(function(msg) {
-          feed2.addExisting(msg.id, msg)
-        })
+        // replicate the feeds
+        console.log('replicating feed1 to feed2')
+        feed1.msgs.forEach(feed2.addExisting.bind(feed2))
 
         // recreate the object
         eco.open(db2, feed2, obj1.getId(), function(err, obj2) {
@@ -268,10 +266,9 @@ module.exports = function(opts) {
     eco.create(db1, feed1, {members: [feed1.id, feed2.id]}, function(err, obj1) {
       if (err) throw err
 
-      // "replicate" the feeds
-      feed1.msgs.forEach(function(msg) {
-        feed2.addExisting(msg.id, msg)
-      })
+      // replicate the feeds
+      console.log('replicating feed1 to feed2')
+      feed1.msgs.forEach(feed2.addExisting.bind(feed2))
 
       // recreate the object
       eco.open(db2, feed2, obj1.getId(), function(err, obj2) {
@@ -297,13 +294,11 @@ module.exports = function(opts) {
             if (err) throw err
             t.equal(changes.length, 5)
 
-            // "replicate" the feeds
-            feed1.msgs.forEach(function(msg) {
-              feed2.addExisting(msg.id, msg)
-            })
-            feed2.msgs.forEach(function(msg) {
-              feed1.addExisting(msg.id, msg)
-            })
+            // replicate the feeds
+            console.log('replicating feed1 to feed2')
+            console.log('replicating feed2 to feed1')
+            feed1.msgs.forEach(feed2.addExisting.bind(feed2))
+            feed2.msgs.forEach(feed1.addExisting.bind(feed1))
 
             // bring history up to date
             obj1.applyMessages(feed1.msgs, function(err, changes) {
@@ -344,6 +339,8 @@ module.exports = function(opts) {
       })
     })
   })
+
+  require('./types/counter')({})
 }
 
 if(!module.parent)
