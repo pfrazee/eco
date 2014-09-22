@@ -26,7 +26,7 @@ eco.create(db, feed, { members: [feed.id, bob_id, carla_id] }, function(err, obj
     myset: 'growset'
   }, function(err) {
     
-    // read current state
+    // update state
     var state = obj.get()
     console.log(state) /*
     {
@@ -35,28 +35,19 @@ eco.create(db, feed, { members: [feed.id, bob_id, carla_id] }, function(err, obj
       myset: []
     }
     */
-    // update state
-    state.mymap.baz = true
-    state.mymap.foo = 'bar'
+    state.mymap = { foo: 'bar', baz: true }
     state.mycount++
-    state.myset.push('foo')
-    state.myset.push('bar')
+    state.myset = ['foo', 'bar']
 
     // write new state
-    obj.put(state, function(err, state) {
-      console.log(state) /*
+    obj.put(state, function(err, changes) {
+      console.log(obj.get()) /*
       {
         mymap: { baz: true, foo: 'bar' },
         mycount: 1,
         myset: ['foo', 'bar']
       }
       */
-      // semantics of the types are maintained
-      state.myset = ['baz'] // myset is a "GrowSet", so 'foo' and 'bar' cant be removed
-      obj.put(state, function(err, state) {
-        console.log(state.myset)
-        // ['foo', 'bar', 'baz']
-      })
     })
   })
 })
