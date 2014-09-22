@@ -99,11 +99,11 @@ One beneficial characteristic of Phoenix/SSB is that, unlike in distributed data
 
 Eco Objects are defined by messages which are published in an SSB feed. The feed which initializes the object is the owner feed with special admin rights. Participating feeds are explicitly set by the owner feed. Subscribers to the object (which may include non-participants) deterministically execute the updates in order to construct a shared state.
 
-Objects are composed of CRDTs which contain Atoms. Messages are [encoded with Msgpack](https://github.com/msgpack/msgpack/blob/master/spec.md#serialization), and so the supported Atoms are the same as the types supported in msgpack.
+Objects are composed of CRDTs which contain values. Messages are [encoded with Msgpack](https://github.com/msgpack/msgpack/blob/master/spec.md#serialization), and so the supported values are the same as the types supported in msgpack. New CRDTs are created with a `declare` operation in the Object that includes a key and a type declaration. After declaration, a CRDT definition can not be changed or removed.
 
-One CRDT type, the Object, is allowed to contain other CRDTs. In the future, it may include other Objects, enabling tree-like recursion.
+On the `put()` method, the given object is diffed against the current state, and a resulting set of operations are published on the feed and applied locally. The diff process works according to the types; for instance, a counter will calculate the delta between the values and issue an `inc` or `dec` op; the register, however, simply issues an overwriting `set` operation.
 
-New CRDTs are created with a `declare` operation in the Object that includes a key and a type declaration. After declaration, a CRDT definition can not be changed or removed.
+Messages received from other feeds must be applied manually for now with `applyMessage`. This gives the developer clear control over when changes occur to the dataset.
 
 
 ## Message Schema
@@ -144,14 +144,14 @@ Example stream:
   vts: [3,0,0],
   path: 'myobject',
   op: 'set',
-  args: ['foo', 'bar']
+  args: ['foo', 'bar', '0-1411423293709', []]
 }
 {
   obj: { $msg: 9a22ce...ff, $rel: 'eco-object' },
   vts: [2,1,0],
   path: 'myobject',
   op: 'set',
-  args: ['works', true]
+  args: ['works', true, '0-1411423293711', []]
 }
 ```
 
@@ -212,7 +212,7 @@ For sets with no unique guarantees (a typical set).
 
 **Map - Observed-Removed, Greatest-Authority-Wins Map**
 
-Operations: `set(value, atom, addTag, removeTags)`
+Operations: `set(string, value, addTag, removeTags)`
 
 Storage overhead: tombstone set for tags (currently ~15 bytes per `set` operation)
 
@@ -220,7 +220,7 @@ Behaves like an OR Set where the element identity is `(key, uuid)`. A set operat
 
 **Object - Grow-Only, Greatest-Authority-Wins Map**
 
-Operations: `declare(value, atom)`
+Operations: `declare(string, value)`
 
 Behaves like the Map, but only specifies the types for child-Objects, and can not change values after they are set. If there are concurrent adds for the same key, greatest-authority wins.
 
