@@ -12,17 +12,18 @@ module.exports = function(opts) {
 
     t.equal(-1, vc.compare([0], [1]))
     t.equal(-1, vc.compare([0, 0], [1, 1]))
+    t.equal(-1, vc.compare([0, 1], [1, 1]))
     t.equal(-1, vc.compare([0, 1, 2], [3, 2, 6]))
     t.equal(-1, vc.compare([5, 3, 9], [6, 10, 26]))
 
     t.equal(1, vc.compare([1], [0]))
     t.equal(1, vc.compare([1, 1], [0, 0]))
+    t.equal(1, vc.compare([1, 0], [0, 0]))
     t.equal(1, vc.compare([3, 2, 6], [0, 1, 2]))
     t.equal(1, vc.compare([6, 10, 26], [5, 3, 9]))
 
     t.equal(0, vc.compare([0, 1], [1, 0]))
-    t.equal(0, vc.compare([0, 1], [1, 1]))
-    t.equal(0, vc.compare([1, 1], [1, 0]))
+    t.equal(0, vc.compare([1, 0], [0, 1]))
     t.equal(0, vc.compare([1, 2, 3], [2, 3, 0]))
 
     t.equal(true,  vc.test([0], '<', [1]))

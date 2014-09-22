@@ -18,38 +18,32 @@ eco.open(db, feed, messageid, cb)
 eco.create(db, feed, { members: [feed.id, bob_id, carla_id] }, function(err, obj) {
   console.log(obj.getId())
   // 40cd2e15...32 (message id)
+})
 
-  // define the object
-  obj.declare({
-    mymap: 'map',
-    mycount: 'counter',
-    myset: 'growset'
-  }, function(err) {
-    
-    // update state
-    var state = obj.get()
-    console.log(state) /*
-    {
-      mymap: {},
-      mycount: 0,
-      myset: []
-    }
-    */
-    state.mymap = { foo: 'bar', baz: true }
-    state.mycount++
-    state.myset = ['foo', 'bar']
+// define object values
+obj.declare({
+  mymap: 'map',
+  mycount: 'counter',
+  myset: 'growset'
+}, function(err) {
+  console.log(obj.get()) /*
+  {
+    mymap: {},
+    mycount: 0,
+    myset: []
+  }
+  */
+})
 
-    // write new state
-    obj.put(state, function(err, changes) {
-      console.log(obj.get()) /*
-      {
-        mymap: { baz: true, foo: 'bar' },
-        mycount: 1,
-        myset: ['foo', 'bar']
-      }
-      */
-    })
-  })
+// write state
+obj.put({ mymap: { foo: 'bar', baz: true }, mycount: 1, myset: ['foo', 'bar'] }, function(err, changes) {
+  console.log(obj.get()) /*
+  {
+    mymap: { baz: true, foo: 'bar' },
+    mycount: 1,
+    myset: ['foo', 'bar']
+  }
+  */
 })
 
 // listening to changes
@@ -190,7 +184,7 @@ A set of counters.
 
 Operations: `set(value)`
 
-Single-value register. Concurrent writes are resolved by taking the value from the node with greatest authority.
+Single-value register. The most recent value is taken. Concurrent writes are resolved by taking the value from the node with greatest authority.
 
 **GrowSet - [Grow-Only Set](https://github.com/pfraze/crdt_notes#grow-only-set-g-set)**
 
@@ -220,7 +214,7 @@ Behaves like an OR Set where the element identity is `(key, uuid)`. The `set` op
 
 Operations: `declare(value, atom)`
 
-Behaves like the Map, but only specifies the types for child-Objects. If there are concurrent adds for the same key, greatest-authority wins.
+Behaves like the Map, but only specifies the types for child-Objects, and can not change values after they are set. If there are concurrent adds for the same key, greatest-authority wins.
 
 
 ## How to use eco
