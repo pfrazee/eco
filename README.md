@@ -46,13 +46,7 @@ obj.put({ mymap: { foo: 'bar', baz: true }, mycount: 1, myset: ['foo', 'bar'] },
   */
 })
 
-// listening to changes
-obj.on('change', function(key, old, new, meta) {
-  console.log(key, old, new) /*
-  'mymap' ['foo', 'bar'] ['foo', 'barrr']  (change 1)
-  'mycount' 1 2                            (change 2)
-  */
-})
+// applying update messages from other feeds
 var startTime = obj.getVClock()
 obj.applyMessages(recentMessages, function(err, changes) {
   console.log(changes) /*
@@ -242,7 +236,7 @@ Nodes which have not yet received the schema update may misinterpret updates by 
 
 This might be solved with some form of coordination (eg a version vector) so that updates are only applied once the schema has been updated.
 
-Currently, ECO disallows CRDTs to be changed or removed after they are added (the object's crdts are grow-only). Add-messages still need to happen before operations are allowed to execute; operations that arrive before their add-message need to be buffered.
+Currently, ECO disallows CRDTs to be changed or removed after they are added (the object's keys are grow-only). Add-messages still need to happen before operations are allowed to execute; operations that arrive before their add-message need to be buffered.
 
 **Is it possible to detect when states have become irreconcilable?**
 
@@ -256,6 +250,14 @@ You could decrease the SSB overhead by grouping multiple ECO messages in one SSB
 
 **Should non-owner members be allowed to declare CRDTs?**
 
-**How should the app guarantee once-and-only-once message delivery?**
+**Correctness: How should the app guarantee once-and-only-once message delivery?**
 
 SSB ensures that messages can't enter the feed more than once, but ECO relies on the application to apply the messages, and an app could re-apply a message and cause a failure. Is there a good way to take that concern away from application developers?
+
+One option is to have the object listen to the feed's interface and automatically execute changes as they come in. This simplifies integration for the app developer, though it does mean that an SSB sync will update the object state, which app devs will need to be prepared for. (We'll probably do this, but the SSB interface is still being finalized.)
+
+That interface update wouldn't guarantee once-and-only-once however. Even if SSB only ever emitted the messages once-and-only-once, it would be possible for the process to crash before it finished processing the message and storing the new state.
+
+One solution is to check the update-author's dimension in the vector clocks of the state and of the update-message. This would not protect the application from dropping messages, but it would ensure that messages are applied once at most.
+
+Another alternative is to include a link to the previous update of the given value in the update message (a causal dependency link). ECO would track the IDs of applied messages. If a causal dependency has not yet been applied, it would be fetched and applied first. (This would not be necessary for all types -- for instance, the register can ignore past updates so long as it has the most recent.)
