@@ -341,6 +341,7 @@ module.exports = function(opts) {
   })
 
   require('./types/counter')({})
+  require('./types/counterset')({})
 }
 
 if(!module.parent)
