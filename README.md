@@ -1,6 +1,6 @@
 # Eventually-Consistent (Distributed) Objects
 
-A storage toolset building distributed applications on [Phoenix](https://github.com/pfraze/phoenix)/[SSB](https://github.com/dominictarr/secure-scuttlebutt). Behaves like a NoSQL document store where the values merge predictably (and without application involvement) when two users make concurrent changes.
+A storage toolset for building distributed applications on [Phoenix](https://github.com/pfraze/phoenix)/[SSB](https://github.com/dominictarr/secure-scuttlebutt). Behaves like a NoSQL document store where the values merge predictably (and without application involvement) when two users make concurrent changes.
 
 **Development Status**: API unstable. All planned types (below) are implemented; currently improving the test suite and refining the library's semantics.
 
@@ -93,6 +93,8 @@ Secure-scuttlebutt feeds guarantee delivery order and message authenticity. In P
 ## Server Consistency
 
 One beneficial characteristic of Phoenix/SSB is that, unlike in distributed databases, users will never change servers during operation. (That is, they have dedicated servers: their own devices.) This removes a class of issues which occur when a client changes servers during a partition, causing the view of state to be inconsistent.
+
+This gives us (PRAM)[http://en.wikipedia.org/wiki/PRAM_consistency] and (RYW)[http://www.dbms2.com/2010/05/01/ryw-read-your-writes-consistency/] consistency.
 
 
 ## Basic Mechanics
@@ -190,7 +192,7 @@ Storage overhead: no additional
 
 Operations: `add(value)`
 
-For sets which only ever grow.
+For sets which only ever grow. (Unordered.)
 
 Storage overhead: no additional
 
@@ -200,7 +202,7 @@ Operations: `add(value)`, `remove(value)`
 
 Storage overhead: tombstone set
 
-For sets which guarantee that an item can only be added (and removed) once.
+For sets which guarantee that an item can only be added (and removed) once. (Unordered.)
 
 **Set - [Observed-Removed Set](https://github.com/pfraze/crdt_notes#or-set)**
 
@@ -208,7 +210,7 @@ Operations: `add(value, addTag)`, `remove(value, removeTags)`
 
 Storage overhead: tombstone set for tags (currently ~15 bytes per `remove` operation)
 
-For sets with no unique guarantees (a typical set).
+For sets with no unique guarantees (a typical set). (Unordered.)
 
 **Map - Observed-Removed, Greatest-Authority-Wins Map**
 
