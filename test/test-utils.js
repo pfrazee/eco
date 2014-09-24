@@ -69,7 +69,7 @@ exports.simulator = function(t, dbs) {
     log('syncFreq', syncFreq)
     log('numSyncs', numSyncs)
     log('decl', decl)
-    log('ops', ops)
+    log('ops', JSON.stringify(ops))
 
     if (numNodes < 2)
       return cb(new Error('Must have at least 2 nodes'))
@@ -146,8 +146,9 @@ exports.simulator = function(t, dbs) {
         applyOp(objs[nodei], op, doSync)
       }
 
-      function doSync(err) {
+      function doSync(err, changes) {
         if (err) return cb(err)
+        log('changes', changes)
 
         // time to sync?
         syncCounter++
@@ -172,8 +173,8 @@ exports.simulator = function(t, dbs) {
         feeds.forEach(function(feed, i) {
           if (feed.msgs.length > starts[i]) {
             log('node', i, 'apply', feed.msgs.length - starts[i])
-            log('obj', i, 'internal state', objs[i].getInternalState().data)
-            log('obj', i, 'internal meta', objs[i].getInternalState().meta)
+            log('obj', i, 'internal state', JSON.stringify(objs[i].getInternalState().data))
+            log('obj', i, 'internal meta', JSON.stringify(objs[i].getInternalState().meta))
             objs[i].applyMessages(feed.msgs.slice(starts[i]), done())
             noupdates = false
           }
@@ -206,8 +207,8 @@ exports.simulator = function(t, dbs) {
       feeds.forEach(function(feed, i) {
         if (feed.msgs.length > starts[i]) {
           log('node', i, 'apply', feed.msgs.length - starts[i])
-          log('obj', i, 'internal state', objs[i].getInternalState().data)
-          log('obj', i, 'internal meta', objs[i].getInternalState().meta)
+          log('obj', i, 'internal state', JSON.stringify(objs[i].getInternalState().data))
+          log('obj', i, 'internal meta', JSON.stringify(objs[i].getInternalState().meta))
           objs[i].applyMessages(feed.msgs.slice(starts[i]), done())
           noupdates = false
         }

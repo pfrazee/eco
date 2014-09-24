@@ -257,9 +257,6 @@ module.exports = function(opts) {
 
                     console.log('obj1', obj1.get())
                     console.log('feed1 changes', changes)
-                    t.equal(feed1.msgs.length, 13)
-                    t.equal(changes.length, 2)
-                    t.assert(equal(obj1.get().ormap, { baz: true, b: 3, c: 4 }))
 
                     // bring feed2 history up to date
                     obj2.applyMessages(feed2.msgs.slice(9), function(err, changes) {
@@ -267,19 +264,17 @@ module.exports = function(opts) {
 
                       console.log('obj2', obj2.get())
                       console.log('feed2 changes', changes)
-                      t.equal(feed2.msgs.length, 13)
-                      t.equal(changes.length, 4)
-                      t.assert(equal(obj2.get().ormap, { baz: true, b: 3, c: 4 }))
+                      t.assert(equal(obj1.get().ormap, obj2.get().ormap))
 
                       // remove all but baz: true
                       console.log('obj1 setting ormap to { baz: true }')
-                      obj1.put({ ormap: { baz: true, b: undefined, c: undefined } }, function(err, changes) {
+                      obj1.put({ ormap: { baz: true, b: undefined, c: undefined, x: undefined } }, function(err, changes) {
                         if (err) throw err
 
                         console.log('obj1', obj1.get())
                         console.log('feed1 changes', changes)
-                        t.equal(feed1.msgs.length, 15)
-                        t.equal(changes.length, 2)
+                        t.equal(feed1.msgs.length, 16)
+                        t.equal(changes.length, 3)
                         t.assert(equal(obj1.get().ormap, { baz: true }))
 
                         // replicate the feeds
@@ -292,8 +287,8 @@ module.exports = function(opts) {
 
                           console.log('obj2', obj2.get())
                           console.log('feed2 changes', changes)
-                          t.equal(feed2.msgs.length, 15)
-                          t.equal(changes.length, 2)
+                          t.equal(feed2.msgs.length, 16)
+                          t.equal(changes.length, 3)
                           t.assert(equal(obj2.get().ormap, { baz: true }))
 
                           db1.close(function() { db2.close(t.end) })

@@ -187,9 +187,6 @@ module.exports = function(opts) {
                       t.equal(changes.length, 1)
                       t.assert(equal(obj2.get().reg, false))
 
-                      console.log('obj1 final vclock', obj1.getVClock())
-                      console.log('obj2 final vclock', obj2.getVClock())
-
                       db1.close(function() { db2.close(t.end) })
                     })
                   })

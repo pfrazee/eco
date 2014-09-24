@@ -37,24 +37,20 @@ obj.declare({
 
 // write state
 obj.put({ mymap: { foo: 'bar', baz: true }, mycount: 1, myset: ['foo', 'bar'] }, function(err, changes) {
-  console.log(obj.get()) /*
-  {
-    mymap: { baz: true, foo: 'bar' },
-    mycount: 1,
-    myset: ['foo', 'bar']
+  console.log(changes) /*
+  [
+    ['mymap', ['foo', undefined], ['foo', 'bar'], { author: ..., authi: ..., vts: ... }],
+    ['mymap', ['baz', undefined], ['baz', true], { author: ..., authi: ..., vts: ... }],
+    ['mycount', 0, 1, { author: ..., authi: ..., vts: ... }],
+    ['myset', undefined, 'foo', { author: ..., authi: ..., vts: ... }],
+    ['myset', undefined, 'bar', { author: ..., authi: ..., vts: ... }]
   }
   */
 })
 
 // applying update messages from other feeds
-var startTime = obj.getVClock()
+var startTime = obj.getSeq()
 obj.applyMessages(recentMessages, function(err, changes) {
-  console.log(changes) /*
-  [
-    ['mymap', ['foo', 'bar'], ['foo', 'barrr'], { author: ..., authi: ..., vts: ... }],
-    ['mycount', 1, 2, { author: ..., authi: ..., vts: ... }]
-  ]
-  */
   console.log(obj.updatedSince(startTime))
   // ['mymap', 'mycount']
 })
@@ -76,7 +72,7 @@ object.on('change', function(key, old, new, meta))
 object.createChangeStream() // emits the change events
 
 object.getId() // => Buffer (hashid of message that declared the object)
-object.getVClock() // => [1, 6, 4]
+object.getSeq() // => [1, 6, 4]
 object.getMembers() // => [Buffer, Buffer, Buffer] (feed ids)
 object.getOwner() // => Buffer (feed id)
 object.updatedSince(vectorTimestamp) // => ['key', 'key', ...]
@@ -113,7 +109,7 @@ Messages received from other feeds must be applied manually for now with `applyM
 ```
 {
   obj: { $msg: Buffer, $rel: 'eco-object' },
-  vts: Array[Int],
+  seq: Int,
   path: String,
   op: String,
   args: Array[Atom]
@@ -124,7 +120,7 @@ Example stream:
 
 ```
 {
-  vts: [1,0,0],
+  seq: 1,
   op: 'init',
   args: [{
     members: [
@@ -136,21 +132,21 @@ Example stream:
 }
 {
   obj: { $msg: 9a22ce...ff, $rel: 'eco-object' },
-  vts: [2,0,0],
+  seq: 2,
   path: '',
   op: 'declare',
   args: ['myobject', {type: 'map'}]
 }
 {
   obj: { $msg: 9a22ce...ff, $rel: 'eco-object' },
-  vts: [3,0,0],
+  seq: 3,
   path: 'myobject',
   op: 'set',
   args: ['foo', 'bar', '0-1411423293709', []]
 }
 {
   obj: { $msg: 9a22ce...ff, $rel: 'eco-object' },
-  vts: [2,1,0],
+  seq: 4,
   path: 'myobject',
   op: 'set',
   args: ['works', true, '0-1411423293711', []]
@@ -162,7 +158,7 @@ Example stream:
 
 SSB's feeds guarantee one-time, ordered delivery of messages (within that feed). That gives us flexibility to use operation-based CRDTs.
 
-Ecos are also aware of the full set of nodes involved, as they are defined in the schema. In that definition, the node-set is ordered. That ordering assigns the dimensions in vector clocks and determines the order of authority in Greatest Authority Wins.
+Ecos are also aware of the full set of nodes involved, as they are defined in the schema. In that definition, the node-set is ordered. That ordering assigns indexes to nodes, which are used to decide ties in sequence numbers.
 
 The `value` type is a subset of `atom` which supports a straight-forward equality. It includes null, bools, ints, doubles, and strings.
 
@@ -180,11 +176,11 @@ Storage overhead: no additional
 
 A set of counters.
 
-**Register - [Greatest-Authority Wins Register](https://github.com/pfraze/crdt_notes#registers)**
+**Register - [Last-Writer Wins Register](https://github.com/pfraze/crdt_notes#last-writer-wins-register-lww-register)**
 
 Operations: `set(value)`
 
-Single-value register. The most recent value is taken. Concurrent writes are resolved by taking the value from the node with greatest authority.
+Single-value register. The most recent value is taken. Concurrent writes are resolved by taking the highest sequence number; if the seq numbers are equal, than node earliest in the memberset wins.
 
 Storage overhead: no additional
 
@@ -212,13 +208,13 @@ Storage overhead: tombstone set for tags (currently ~15 bytes per `remove` opera
 
 For sets with no unique guarantees (a typical set). (Unordered.)
 
-**Map - Observed-Removed, Greatest-Authority-Wins Map**
+**Map - Observed-Removed, Last-Writer-Wins Map**
 
 Operations: `set(string, value, addTag, removeTags)`
 
 Storage overhead: tombstone set for tags (currently ~15 bytes per `set` operation)
 
-Behaves like an OR Set where the element identity is `(key, uuid)`. A set operation removes any current tags then sets the value at `key` with a new tag. Concurrent removes are idempotent; concurrent add/remove are independent due to the uuid; and concurrent adds are greatest-authority wins.
+Behaves like an OR Set where the element identity is `(key, uuid)`. A set operation removes any current tags then sets the value at `key` with a new tag. Concurrent removes are idempotent; concurrent add/remove are independent due to the uuid; and concurrent adds are last-writer wins.
 
 **Object - Grow-Only, Greatest-Authority-Wins Map**
 
@@ -285,3 +281,55 @@ See [The ORSWOT in Riak 2.0](https://github.com/pfraze/crdt_notes#the-orswot-in-
 **Is there a more efficient timestamp for Observed-Removed tags?**
 
 Currently using `<node index>-<timestamp>` which ranges 15-20 bytes per tag.
+
+**What happend to greatest-authority wins? Was it a good total order?**
+
+It turns out, no. At least, not when used with vector clocks.
+
+The initial premise was, during a window of concurrency, the node with greatest authority dominates. This means, the last message by the highest authority should apply.
+
+The problem is that the period of known concurrency is inconsistent.
+
+Consider this real-world message history from a set of 3 nodes:
+
+```
+NODE 2
+my_reg=1 ts=<3,0,0> auth=NODE1 *
+my_reg=4 ts=<3,1,0> auth=NODE2 *final
+my_reg=1 ts=<2,0,1> auth=NODE3
+my_reg=2 ts=<2,0,2> auth=NODE3
+my_reg=3 ts=<2,0,3> auth=NODE3
+my_reg=1 ts=<2,0,4> auth=NODE3
+
+NODE 3
+my_reg=1 ts=<2,0,1> auth=NODE3 *
+my_reg=2 ts=<2,0,2> auth=NODE3 *
+my_reg=3 ts=<2,0,3> auth=NODE3 *
+my_reg=1 ts=<2,0,4> auth=NODE3 *
+my_reg=1 ts=<3,0,0> auth=NODE1 *final
+my_reg=4 ts=<3,1,0> auth=NODE2
+```
+
+Both of these nodes are following greatest-authority wins, so why do they come to different conclusions? Because of the internal vector clock. Here's the same sequence, with the internal clock shown:
+
+```
+NODE 2
+my_reg=1 ts=<3,0,0> auth=NODE1 clock=<3,0,0> *
+my_reg=4 ts=<3,1,0> auth=NODE2 clock=<3,1,0> *final
+my_reg=1 ts=<2,0,1> auth=NODE3 clock=<3,1,1>
+my_reg=2 ts=<2,0,2> auth=NODE3 clock=<3,1,2>
+my_reg=3 ts=<2,0,3> auth=NODE3 clock=<3,1,3>
+my_reg=1 ts=<2,0,4> auth=NODE3 clock=<3,1,4>
+
+NODE 3
+my_reg=1 ts=<2,0,1> auth=NODE3 clock=<2,0,1> *
+my_reg=2 ts=<2,0,2> auth=NODE3 clock=<2,0,2> *
+my_reg=3 ts=<2,0,3> auth=NODE3 clock=<2,0,3> *
+my_reg=1 ts=<2,0,4> auth=NODE3 clock=<2,0,4> *
+my_reg=1 ts=<3,0,0> auth=NODE1 clock=<3,0,4> *final
+my_reg=4 ts=<3,1,0> auth=NODE2 clock=<3,1,4>
+```
+
+Nodes 2 and 3 start their concurrency windows at different times. For node2, it starts after `my_reg` has been set to 4. For node3, it starts after `my_reg` has been set to 1. With no more ordering information to use, the two nodes compare the authorities of *different messages*, and thus come to different results.
+
+To fix this, vector clocks and Greatest-Authority have been dropped in favor of last-writer wins.
