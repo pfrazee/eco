@@ -79,7 +79,7 @@ module.exports = function(opts) {
 
           // add {b: 2, baz: true}, remove {foo:}, update {x: 'bbb'}
           console.log('obj1 setting ormap to {a: 1, b: 2, baz: true, x: "bbb"}')
-          obj.put({ ormap: { a: 1, b: 2, baz: true, foo: undefined, x: 'bbb' } }, function(err, changes) {
+          obj.put({ ormap: { a: 1, b: 2, baz: true, x: 'bbb' } }, function(err, changes) {
             if (err) throw err
             var umsg1 = msgpack.decode(feed.msgs[5].message)
             var umsg2 = msgpack.decode(feed.msgs[6].message)
@@ -90,7 +90,7 @@ module.exports = function(opts) {
             console.log('update message 1', umsg1)
             console.log('update message 2', umsg2)
             console.log('update message 3', umsg3)
-            console.log('update message 4', umsg3)
+            console.log('update message 4', umsg4)
 
             t.equal(feed.msgs.length, 9)
             t.equal(changes.length, 4)
@@ -105,15 +105,15 @@ module.exports = function(opts) {
             t.equal(changes[1][2][0], 'baz')
             t.equal(changes[1][2][1], true)
             t.equal(changes[2][0], 'ormap')
-            t.equal(changes[2][1][0], 'foo')
-            t.equal(changes[2][1][1], false)
-            t.equal(changes[2][2][0], 'foo')
-            t.equal(changes[2][2][1], void 0)
+            t.equal(changes[2][1][0], 'x')
+            t.equal(changes[2][1][1], 'aaa')
+            t.equal(changes[2][2][0], 'x')
+            t.equal(changes[2][2][1], 'bbb')
             t.equal(changes[3][0], 'ormap')
-            t.equal(changes[3][1][0], 'x')
-            t.equal(changes[3][1][1], 'aaa')
-            t.equal(changes[3][2][0], 'x')
-            t.equal(changes[3][2][1], 'bbb')
+            t.equal(changes[3][1][0], 'foo')
+            t.equal(changes[3][1][1], false)
+            t.equal(changes[3][2][0], 'foo')
+            t.equal(changes[3][2][1], void 0)
             t.equal(umsg1.path, 'ormap')
             t.equal(umsg1.op, 'set')
             t.equal(umsg1.args[0], 'b')
@@ -128,14 +128,14 @@ module.exports = function(opts) {
             t.assert(equal(umsg2.args[3], []))
             t.equal(umsg3.path, 'ormap')
             t.equal(umsg3.op, 'set')
-            t.equal(umsg3.args[0], 'foo')
-            t.equal(umsg3.args[1], undefined)
+            t.equal(umsg3.args[0], 'x')
+            t.equal(umsg3.args[1], 'bbb')
             t.equal(typeof umsg3.args[2], 'string')
             t.equal(umsg3.args[3].length, 1)
             t.equal(umsg4.path, 'ormap')
             t.equal(umsg4.op, 'set')
-            t.equal(umsg4.args[0], 'x')
-            t.equal(umsg4.args[1], 'bbb')
+            t.equal(umsg4.args[0], 'foo')
+            t.equal(umsg4.args[1], undefined)
             t.equal(typeof umsg4.args[2], 'string')
             t.equal(umsg4.args[3].length, 1)
             t.assert(equal(obj.get().ormap, { a: 1, b: 2, baz: true, x: 'bbb' }))
@@ -209,7 +209,7 @@ module.exports = function(opts) {
 
               // add {b: 2, baz: true}, remove {foo:}, update {x: 'bbb'}
               console.log('obj2 setting ormap to {a: 1, b: 2, baz: true, x: "bbb"}')
-              obj2.put({ ormap: { a: 1, b: 2, baz: true, foo: undefined, x: 'bbb' } }, function(err, changes) {
+              obj2.put({ ormap: { a: 1, b: 2, baz: true, x: 'bbb' } }, function(err, changes) {
                 if (err) throw err
                 var umsg1 = msgpack.decode(feed2.msgs[5].message)
                 var umsg2 = msgpack.decode(feed2.msgs[6].message)
@@ -228,7 +228,7 @@ module.exports = function(opts) {
 
                 // add {b: 3, c: 4}, remove {a:, x:}
                 console.log('obj1 setting ormap to {foo: false, b: 3, c: 4}')
-                obj1.put({ ormap: {a: undefined, foo: false, x: undefined, b: 3, c: 4} }, function(err, changes) {
+                obj1.put({ ormap: { foo: false, b: 3, c: 4 } }, function(err, changes) {
                   if (err) throw err
                   var umsg1 = msgpack.decode(feed1.msgs[5].message)
                   var umsg2 = msgpack.decode(feed1.msgs[6].message)
@@ -268,13 +268,11 @@ module.exports = function(opts) {
 
                       // remove all but baz: true
                       console.log('obj1 setting ormap to { baz: true }')
-                      obj1.put({ ormap: { baz: true, b: undefined, c: undefined, x: undefined } }, function(err, changes) {
+                      obj1.put({ ormap: { baz: true } }, function(err, changes) {
                         if (err) throw err
 
                         console.log('obj1', obj1.get())
                         console.log('feed1 changes', changes)
-                        t.equal(feed1.msgs.length, 16)
-                        t.equal(changes.length, 3)
                         t.assert(equal(obj1.get().ormap, { baz: true }))
 
                         // replicate the feeds
@@ -287,8 +285,6 @@ module.exports = function(opts) {
 
                           console.log('obj2', obj2.get())
                           console.log('feed2 changes', changes)
-                          t.equal(feed2.msgs.length, 16)
-                          t.equal(changes.length, 3)
                           t.assert(equal(obj2.get().ormap, { baz: true }))
 
                           db1.close(function() { db2.close(t.end) })
