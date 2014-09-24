@@ -90,7 +90,7 @@ Secure-scuttlebutt feeds guarantee delivery order and message authenticity. In P
 
 One beneficial characteristic of Phoenix/SSB is that, unlike in distributed databases, users will never change servers during operation. (That is, they have dedicated servers: their own devices.) This removes a class of issues which occur when a client changes servers during a partition, causing the view of state to be inconsistent.
 
-This gives us (PRAM)[http://en.wikipedia.org/wiki/PRAM_consistency] and (RYW)[http://www.dbms2.com/2010/05/01/ryw-read-your-writes-consistency/] consistency.
+This gives us (PRAM)[http://en.wikipedia.org/wiki/PRAM_consistency] and (RYW)[http://www.dbms2.com/2010/05/01/ryw-read-your-writes-consistency/] consistency. [Related reading.](http://www.bailis.org/blog/stickiness-and-client-server-session-guarantees/)
 
 
 ## Basic Mechanics
