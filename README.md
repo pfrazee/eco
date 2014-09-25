@@ -72,10 +72,14 @@ object.on('change', function(key, old, new, meta))
 object.createChangeStream() // emits the change events
 
 object.getId() // => Buffer (hashid of message that declared the object)
-object.getSeq() // => [1, 6, 4]
+object.getSeq() // => Number (a lamport-clock sequence number)
 object.getMembers() // => [Buffer, Buffer, Buffer] (feed ids)
 object.getOwner() // => Buffer (feed id)
-object.updatedSince(vectorTimestamp) // => ['key', 'key', ...]
+object.updatedSince(seqNumber) // => ['key', 'key', ...]
+object.getHistory() => [{ id: Buffer, seq: Number, authi: Number }, ...]
+// the history will have an array for concurrent messages, eg [msg, [msg, msg], msg]
+// if the message applies to a LWW type, the message ordered earliest in the array is the winner
+object.getHistory({ includeMsg: true }, cb) // => [{ id: Buffer, seq: Number, authi: Number, msg: Object }, ...]
 ```
 
 
@@ -109,6 +113,7 @@ Messages received from other feeds must be applied manually for now with `applyM
 ```
 {
   obj: { $msg: Buffer, $rel: 'eco-object' },
+  prev: { $msg: Buffer, $rel: 'eco-prev' },
   seq: Int,
   path: String,
   op: String,
@@ -132,6 +137,7 @@ Example stream:
 }
 {
   obj: { $msg: 9a22ce...ff, $rel: 'eco-object' },
+  prev: { $msg: 9a22ce...ff, $rel: 'eco-prev' },
   seq: 2,
   path: '',
   op: 'declare',
@@ -139,6 +145,7 @@ Example stream:
 }
 {
   obj: { $msg: 9a22ce...ff, $rel: 'eco-object' },
+  prev: { $msg: ac21ad...21, $rel: 'eco-prev' },
   seq: 3,
   path: 'myobject',
   op: 'set',
@@ -146,6 +153,7 @@ Example stream:
 }
 {
   obj: { $msg: 9a22ce...ff, $rel: 'eco-object' },
+  prev: { $msg: 9001d2...3a, $rel: 'eco-prev' },
   seq: 4,
   path: 'myobject',
   op: 'set',

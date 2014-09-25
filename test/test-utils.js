@@ -203,6 +203,7 @@ exports.simulator = function(t, dbs) {
 
       // apply the messages
       var noupdates = true
+      var history = null
       var done = multicb()
       feeds.forEach(function(feed, i) {
         if (feed.msgs.length > starts[i]) {
@@ -243,6 +244,12 @@ exports.simulator = function(t, dbs) {
                 })
               })
             }
+
+            // check history reconstruction as well
+            if (!history)
+              history = objs[i].getHistory()
+            else
+              t.assert(equal(history, objs[i].getHistory()))
           }
         }
         cb()

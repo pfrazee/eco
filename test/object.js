@@ -34,6 +34,7 @@ module.exports = function(opts) {
       t.assert(equal(state.members, [feed.id]))
       t.assert(equal(state.meta, {}))
       t.assert(equal(state.data, {}))
+      t.assert(equal(state.history, [{id: feed.msgs[0].id, seq: 1, authi: 0}]))
 
       db.close(t.end)
     })
@@ -168,6 +169,7 @@ module.exports = function(opts) {
 
         console.log('changes', changes)
         t.equal(feed.msgs.length, 8)
+        t.equal(obj.getHistory().length, 8)
         t.equal(changes.length, 7)
         t.assert(equal(changes[0].slice(0,3), ['a', undefined, 0]))
         t.assert(equal(changes[1].slice(0,3), ['b', undefined, {}]))
@@ -336,6 +338,31 @@ module.exports = function(opts) {
             })
           })
         })
+      })
+    })
+  })
+
+  tape('object getHistory({ includeMsg: true })', function(t) {
+    var db = level(__dirname + '/db', { db: memdown, valueEncoding: 'binary' })
+    var feed = tutil.makefeed()
+
+    // create a new object
+    eco.create(db, feed, function(err, obj) {
+      if (err) throw err
+
+      obj.getHistory({ includeMsg: true }, function(err, history) {
+        if (err) throw err
+
+        console.log('full history', history)
+        t.equal(history.length, 1)
+        t.equal(history[0].seq, 1)
+        t.equal(history[0].authi, 0)
+        t.equal(history[0].id.toString('hex'), feed.msgs[0].id.toString('hex'))
+        t.equal(history[0].msg.op, 'init')
+        t.equal(history[0].msg.args[0].members[0].$rel, 'eco-member')
+        t.equal(history[0].msg.args[0].members[0].$feed.toString('hex'), feed.id.toString('hex'))
+
+        db.close(t.end)
       })
     })
   })

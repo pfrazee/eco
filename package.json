@@ -5,7 +5,8 @@
   "dependencies": {
     "monotonic-timestamp": "~0.0.9",
     "multicb": "~0.0.2",
-    "msgpack-js": "~0.3.0"
+    "msgpack-js": "~0.3.0",
+    "clone": "~0.1.18"
   },
   "devDependencies": {
     "deep-equal": "^0.2.1",

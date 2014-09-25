@@ -76,6 +76,7 @@ module.exports = function(opts) {
                 if (err) throw err
                 t.equal(changes.length, 1)
                 t.assert(equal(obj.get().reg, 0))
+                console.log('obj1 final history', obj.getHistory())
 
                 db.close(t.end)
               })
@@ -187,7 +188,18 @@ module.exports = function(opts) {
                       t.equal(changes.length, 1)
                       t.assert(equal(obj2.get().reg, false))
 
-                      db1.close(function() { db2.close(t.end) })
+                      obj1.getHistory({includeMsg: true}, function(err, h1) {
+                        if (err) throw err
+                        obj2.getHistory({includeMsg: true}, function(err, h2) {
+                          if (err) throw err
+
+                          console.log('obj1 final history', h1)
+                          console.log('obj2 final history', h2)
+                          t.assert(equal(h1, h2))
+
+                          db1.close(function() { db2.close(t.end) })
+                        })
+                      })
                     })
                   })
                 })
