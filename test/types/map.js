@@ -287,7 +287,20 @@ module.exports = function(opts) {
                           console.log('feed2 changes', changes)
                           t.assert(equal(obj2.get().ormap, { baz: true }))
 
-                          db1.close(function() { db2.close(t.end) })
+                          obj1.getHistory({includeMsg: true}, function(err, h1) {
+                            if (err) throw err
+                            obj2.getHistory({includeMsg: true}, function(err, h2) {
+                              if (err) throw err
+
+                              console.log('obj1 final history')
+                              tutil.logHistory(h1)
+                              console.log('obj2 final history')
+                              tutil.logHistory(h2)
+                              t.assert(equal(h1, h2))
+
+                              db1.close(function() { db2.close(t.end) })
+                            })
+                          })
                         })
                       })
                     })

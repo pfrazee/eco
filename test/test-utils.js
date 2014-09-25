@@ -46,6 +46,21 @@ exports.makefeed = function() {
   }
 }
 
+exports.logHistory = function(h) {
+  h.forEach(function(entry) {
+    if (Array.isArray(entry)) {
+      console.log(entry[0].seq, 'BRANCH')
+      entry.forEach(function(branch, i) {
+        console.log('--', i, branch.id.toString('hex'))
+        console.log('-- =>', branch.msg.path, branch.msg.op, branch.msg.args[0], branch.msg.args[1], (branch.msg.prev) ? ('PREV='+branch.msg.prev.$msg.toString('hex')) : '')
+      })
+    } else {
+      console.log(entry.seq, entry.id.toString('hex'))
+      console.log('=>', entry.msg.path, entry.msg.op, entry.msg.args[0], entry.msg.args[1], (entry.msg.prev) ? ('PREV='+entry.msg.prev.$msg.toString('hex')) : '')
+    }
+  })
+}
+
 exports.simulator = function(t, dbs) {
   var sim = {}
 

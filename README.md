@@ -2,7 +2,7 @@
 
 A storage toolset for building distributed applications on [Phoenix](https://github.com/pfraze/phoenix)/[SSB](https://github.com/dominictarr/secure-scuttlebutt). Behaves like a NoSQL document store where the values merge predictably (and without application involvement) when two users make concurrent changes.
 
-**Development Status**: API unstable. All planned types (below) are implemented; currently improving the test suite and refining the library's semantics.
+**Development Status**: API unstable. All planned types (below) are implemented; currently improving the test suite and finishing the api.
 
 ```js
 var multicb = require('multicb')
@@ -65,8 +65,7 @@ object.typeof(key) // => type definition
 object.get() // fetches a copy of the object state
 object.put(vs, function(err, changes)) // diffs with the current state to generate the update ops
 
-object.applyMessage(message, function(err, key, old, new, meta)) // run the update message (message should come from ssb)
-object.applyMessages(messages, function(err, changes)) // batch apply
+object.applyMessages(messages, function(err, changes)) // run the update messages (message should come from ssb)
 
 object.on('change', function(key, old, new, meta))
 object.createChangeStream() // emits the change events
@@ -105,7 +104,7 @@ Objects are composed of CRDTs which contain values. Messages are [encoded with M
 
 On the `put()` method, the given object is diffed against the current state, and a resulting set of operations are published on the feed and applied locally. The diff process works according to the types; for instance, a counter will calculate the delta between the values and issue an `inc` or `dec` op; the register, however, simply issues an overwriting `set` operation.
 
-Messages received from other feeds must be applied manually for now with `applyMessage`. This gives the developer clear control over when changes occur to the dataset.
+Messages received from other feeds must be applied manually for now with `applyMessages`. This gives the developer clear control over when changes occur to the dataset.
 
 
 ## Message Schema
