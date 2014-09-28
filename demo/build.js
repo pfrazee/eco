@@ -52,6 +52,47 @@ module.exports = React.createClass({displayName: 'exports',
 })
 },{}],3:[function(require,module,exports){
 /** @jsx React.DOM */
+var Counter = require('./counter')
+var Register = require('./register')
+var Growset = require('./growset')
+var Onceset = require('./onceset')
+var Set = require('./set')
+
+module.exports = React.createClass({displayName: 'exports',
+    getInitialState: function() {
+        return { changes: [], data: this.props.obj.get() }
+    },
+    onChange: function(color, text) {
+        this.state.changes.push({ color: color, text: text })
+        this.setState(this.state)
+        this.props.onDirty(true)
+    },
+    handleCommit: function() {
+        this.props.obj.put(this.state.data, function(err) {
+            if (err) throw err
+            this.setState({ changes: [], data: this.props.obj.get() })
+            this.props.onDirty(false)
+        }.bind(this))
+    },
+    render: function() {
+        var changes = this.state.changes.map(function(change, i) {
+            return React.DOM.div({key: i, style: ({color: change.color})}, change.text)
+        })
+        var commitButton = (this.state.changes.length) ?
+            React.DOM.button({onClick: this.handleCommit}, "commit changes") :
+            React.DOM.button({onClick: this.handleCommit, disabled: true}, "commit changes")
+        return React.DOM.div({className: "object"}, 
+            Counter({obj: this.state.data, key: "counter", onChange: this.onChange}), 
+            Register({obj: this.state.data, key: "reg", onChange: this.onChange}), 
+            Growset({obj: this.state.data, key: "gset", onChange: this.onChange}), 
+            Onceset({obj: this.state.data, key: "oset", onChange: this.onChange}), 
+            Set({obj: this.state.data, key: "orset", onChange: this.onChange}), 
+            changes, " ", commitButton
+        )
+    }
+})
+},{"./counter":1,"./growset":2,"./onceset":4,"./register":5,"./set":6}],4:[function(require,module,exports){
+/** @jsx React.DOM */
 module.exports = React.createClass({displayName: 'exports',
     getInitialState: function() {
         return this.props.obj
@@ -88,7 +129,7 @@ module.exports = React.createClass({displayName: 'exports',
         );
     }
 })
-},{}],4:[function(require,module,exports){
+},{}],5:[function(require,module,exports){
 /** @jsx React.DOM */
 module.exports = React.createClass({displayName: 'exports',
     getInitialState: function() {
@@ -108,7 +149,7 @@ module.exports = React.createClass({displayName: 'exports',
         );
     }
 })
-},{}],5:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 /** @jsx React.DOM */
 module.exports = React.createClass({displayName: 'exports',
     getInitialState: function() {
@@ -146,62 +187,81 @@ module.exports = React.createClass({displayName: 'exports',
         );
     }
 })
-},{}],6:[function(require,module,exports){
+},{}],7:[function(require,module,exports){
 /** @jsx React.DOM */
-var eco = require('../lib')
-var Counter = require('./com/counter')
-var Register = require('./com/register')
-var Growset = require('./com/growset')
-var Onceset = require('./com/onceset')
-var Set = require('./com/set')
-
-var objects = [
-    {counter: 0, reg: 'foo', gset: ['a'], oset: ['apple'], orset: ['orange'] },
-    {counter: 1, reg: 'bar', gset: ['b', 'c'], oset: [], orset: [] }
-]
-window.objects = objects
-
-var Object = React.createClass({displayName: 'Object',
-    getInitialState: function() {
-        return { changes: [] }
-    },
-    onChange: function(color, text) {
-        this.state.changes.push({ color: color, text: text })
-        this.setState(this.state)
-    },
-    handleCommit: function() {
-        // TODO commit eco
-        this.setState({ changes: [] })
+module.exports = React.createClass({displayName: 'exports',
+    handleSync: function(e) {
+        console.log('SYNC')
     },
     render: function() {
-        var changes = this.state.changes.map(function(change, i) {
-            return React.DOM.div({key: i, style: ({color: change.color})}, change.text)
-        })
-        return React.DOM.div({className: "object"}, 
-            Counter({obj: this.props.obj, key: "counter", onChange: this.onChange}), 
-            Register({obj: this.props.obj, key: "reg", onChange: this.onChange}), 
-            Growset({obj: this.props.obj, key: "gset", onChange: this.onChange}), 
-            Onceset({obj: this.props.obj, key: "oset", onChange: this.onChange}), 
-            Set({obj: this.props.obj, key: "orset", onChange: this.onChange}), 
-            changes, 
-            React.DOM.button({onClick: this.handleCommit}, "commit changes")
-        )
+        if (this.props.canSync)
+            return React.DOM.span(null, React.DOM.button({onClick: this.handleSync}, "sync"));
+        return React.DOM.span(null, React.DOM.button({disabled: true, onClick: this.handleSync}, "sync"));
     }
 })
-var objectNodes = objects.map(function(obj, i) {
-    return (Object({obj: obj, key: ('obj'+i)}))
+},{}],8:[function(require,module,exports){
+/** @jsx React.DOM */
+var eco = require('../lib')
+var tutil = require('../test/test-utils')
+var Object = require('./com/object')
+var SyncButton = require('./com/sync-button')
+
+var dbs = window.dbs = []
+var feeds = window.feeds = []
+var ecos = window.ecos = []
+var changes = window.changes = []
+
+function setup() {
+    dbs.push(tutil.makedb()); dbs.push(tutil.makedb())    
+    feeds.push(tutil.makefeed()); feeds.push(tutil.makefeed())
+
+    // create the object
+    eco.create(dbs[0], feeds[0], {members:[feeds[0].id,feeds[1].id]}, function(err, obj) {
+        if (err) throw err
+        obj.declare({ counter: 'counter', reg: 'register', gset: 'growset', oset: 'onceset', orset: 'set' }, function(err, changes) {
+            if (err) throw err
+
+            // open the object replica
+            feeds[0].msgs.forEach(feeds[1].addExisting.bind(feeds[1]))
+            eco.open(dbs[1], feeds[1], obj.getId(), function(err, obj2) {
+                if (err) throw err
+                obj2.applyMessages(feeds[1].msgs.slice(1), function(err, changes) {
+                    if (err) throw err
+
+                    ecos.push(obj); changes.push([])
+                    ecos.push(obj2); changes.push([])
+                    render()
+                })
+            })
+        })
+    })
+}
+
+var App = React.createClass({displayName: 'App',
+    dirtyStates: [],
+    getInitialState: function() {
+        return { canSync: true }
+    },
+    onDirty: function(i, dirty) {
+        this.dirtyStates[i] = dirty
+        var anyDirty = this.dirtyStates.reduce(function(s, acc) { return (s || acc) })
+        this.setState({ canSync: !anyDirty })
+    },
+    render: function() {
+        var objectNodes = ecos.map(function(obj, i) {
+            return (Object({obj: obj, onDirty: this.onDirty.bind(this, i), key: ('obj'+i)}))
+        }.bind(this))
+        return React.DOM.div(null, objectNodes, SyncButton({canSync: this.state.canSync}))
+    }
 })
 
-React.renderComponent(
-    React.DOM.div(null, 
-        objectNodes, 
-        React.DOM.button(null, "Add replica")
-    ),
-    document.getElementById('app')
-)
+function render() {
+    React.renderComponent(React.DOM.div(null, App(null)), document.getElementById('app'))
+}
 
-
-},{"../lib":7,"./com/counter":1,"./com/growset":2,"./com/onceset":3,"./com/register":4,"./com/set":5}],7:[function(require,module,exports){
+setup()
+},{"../lib":9,"../test/test-utils":42,"./com/object":3,"./com/sync-button":7}],9:[function(require,module,exports){
+(function (Buffer){
 var makeObject = require('./object')
 var msglib = require('./message')
 var msgpack = require('msgpack-js')
@@ -268,7 +328,7 @@ exports.open = function(db, feed, objid, cb) {
       
       var msgData = msgpack.decode(msg.message)
       if (!msgData) return cb(new Error('Failed to decode init message'))
-      var members = msgData.args[0].members.map(function(m) { return m.$feed })
+      var members = msgData.args[0].members.map(function(m) { return Buffer.isBuffer(m.$feed) ? m.$feed : new Buffer(m.$feed.data) })
 
       // initialize state
       var state = {
@@ -291,7 +351,8 @@ exports.open = function(db, feed, objid, cb) {
     })
   }
 }
-},{"./message":8,"./object":9,"msgpack-js":22}],8:[function(require,module,exports){
+}).call(this,require("buffer").Buffer)
+},{"./message":10,"./object":11,"buffer":43,"msgpack-js":27}],10:[function(require,module,exports){
 exports.create = function(objid, previd, path, op) {
   return {
     obj: { $msg: objid, $rel: 'eco-object' },
@@ -315,7 +376,8 @@ exports.validate = function(msg) {
   if (!msg.args)
     msg.args = []
 }
-},{}],9:[function(require,module,exports){
+},{}],11:[function(require,module,exports){
+(function (Buffer){
 var types   = require('./types')
 var msglib  = require('./message')
 var vclib   = require('./vclock')
@@ -606,6 +668,11 @@ module.exports = function(db, feed, state) {
   // Apply a message received from the feed
   function applyMessage(msg, cb) {
     var msgData = msgpack.decode(msg.message)
+
+    // in browsers, for some reason we have to manually construct the buffers
+    msgData.obj.$msg = Buffer.isBuffer(msgData.obj.$msg) ? msgData.obj.$msg : new Buffer(msgData.obj.$msg.data)
+    msg.author = Buffer.isBuffer(msg.author) ? msg.author : new Buffer(msg.author.data)
+
     if (!msgData || !msgData.obj || msgData.obj.$rel != 'eco-object')
       return cb() // not an update message
     if (!msgData.obj.$msg || msgData.obj.$msg.toString('hex') != idString)
@@ -719,7 +786,8 @@ module.exports = function(db, feed, state) {
   return obj
 }
 
-},{"./message":8,"./types":13,"./util":18,"./vclock":19,"events":41,"msgpack-js":22,"multicb":36}],10:[function(require,module,exports){
+}).call(this,require("buffer").Buffer)
+},{"./message":10,"./types":15,"./util":20,"./vclock":21,"buffer":43,"events":47,"msgpack-js":27,"multicb":41}],12:[function(require,module,exports){
 var msglib = require('../message')
 
 // Provide an initial value for the type given a declaration message
@@ -785,7 +853,7 @@ exports.diff = function(state, meta, current, other) {
   
   return [msglib.create(state.id, meta.prev, meta.key, op, diff)]
 }
-},{"../message":8}],11:[function(require,module,exports){
+},{"../message":10}],13:[function(require,module,exports){
 var msglib = require('../message')
 
 // Provide an initial value for the type given a declaration message
@@ -869,7 +937,7 @@ exports.diff = function(state, meta, current, other) {
 
   return msgs
 }
-},{"../message":8}],12:[function(require,module,exports){
+},{"../message":10}],14:[function(require,module,exports){
 var msglib = require('../message')
 var util   = require('../util')
 
@@ -942,7 +1010,7 @@ exports.diff = function(state, meta, current, other) {
   
   return msgs
 }
-},{"../message":8,"../util":18}],13:[function(require,module,exports){
+},{"../message":10,"../util":20}],15:[function(require,module,exports){
 module.exports = {
   counter:    require('./counter'),
   counterset: require('./counterset'),
@@ -952,7 +1020,7 @@ module.exports = {
   register:   require('./register'),
   set:        require('./set')
 }
-},{"./counter":10,"./counterset":11,"./growset":12,"./map":14,"./onceset":15,"./register":16,"./set":17}],14:[function(require,module,exports){
+},{"./counter":12,"./counterset":13,"./growset":14,"./map":16,"./onceset":17,"./register":18,"./set":19}],16:[function(require,module,exports){
 var mts    = require('monotonic-timestamp')
 var msglib = require('../message')
 var util   = require('../util')
@@ -1095,7 +1163,7 @@ For example, if we had the following sequence:
 3. set c=3 from bob, vts=[2, 1]
 If a node somehow applied #2 and #3 before #1, the vts would become [2, 1]. The #1 update would not apply after that.
 */
-},{"../message":8,"../util":18,"monotonic-timestamp":21}],15:[function(require,module,exports){
+},{"../message":10,"../util":20,"monotonic-timestamp":26}],17:[function(require,module,exports){
 var msglib = require('../message')
 var util   = require('../util')
 
@@ -1193,7 +1261,7 @@ exports.diff = function(state, meta, current, other) {
   
   return msgs
 }
-},{"../message":8,"../util":18}],16:[function(require,module,exports){
+},{"../message":10,"../util":20}],18:[function(require,module,exports){
 var msglib = require('../message')
 var util   = require('../util')
 var vclib  = require('../vclock')
@@ -1259,7 +1327,7 @@ exports.diff = function(state, meta, current, other) {
     throw new Error('Registers can only be set to values, not objects')
   return [msglib.create(state.id, meta.prev, meta.key, 'set', other)]
 }
-},{"../message":8,"../util":18,"../vclock":19}],17:[function(require,module,exports){
+},{"../message":10,"../util":20,"../vclock":21}],19:[function(require,module,exports){
 var mts    = require('monotonic-timestamp')
 var msglib = require('../message')
 var util   = require('../util')
@@ -1396,7 +1464,7 @@ exports.diff = function(state, meta, current, other) {
   
   return msgs
 }
-},{"../message":8,"../util":18,"monotonic-timestamp":21}],18:[function(require,module,exports){
+},{"../message":10,"../util":20,"monotonic-timestamp":26}],20:[function(require,module,exports){
 exports.deepclone = function(v) {
   return require('clone')(v)
 }
@@ -1433,7 +1501,7 @@ exports.valueToKey = function(v) {
 This guards against duplicates in `a` causing a remove, even though the value is present in both `a` and `b`
 If we remove `b.indexOf`, then `diffset([1, 1], [1])` would result in a remove of 1 because the second 1 in `a` would not have an `inboth` entry
 */
-},{"clone":20}],19:[function(require,module,exports){
+},{"clone":22}],21:[function(require,module,exports){
 exports.compare = function(a, b) {
   if (a.length != b.length) throw new Error('Inconsistent vector lengths')
   var r = 0
@@ -1464,7 +1532,7 @@ exports.test = function(a, op, b) {
     return exports.compare(a, b) == -1
   throw new Error('Vclock.js test() only supports "<" and ">"')
 }
-},{}],20:[function(require,module,exports){
+},{}],22:[function(require,module,exports){
 (function (Buffer){
 'use strict';
 
@@ -1597,7 +1665,136 @@ clone.clonePrototype = function(parent) {
 };
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":37}],21:[function(require,module,exports){
+},{"buffer":43}],23:[function(require,module,exports){
+var pSlice = Array.prototype.slice;
+var objectKeys = require('./lib/keys.js');
+var isArguments = require('./lib/is_arguments.js');
+
+var deepEqual = module.exports = function (actual, expected, opts) {
+  if (!opts) opts = {};
+  // 7.1. All identical values are equivalent, as determined by ===.
+  if (actual === expected) {
+    return true;
+
+  } else if (actual instanceof Date && expected instanceof Date) {
+    return actual.getTime() === expected.getTime();
+
+  // 7.3. Other pairs that do not both pass typeof value == 'object',
+  // equivalence is determined by ==.
+  } else if (typeof actual != 'object' && typeof expected != 'object') {
+    return opts.strict ? actual === expected : actual == expected;
+
+  // 7.4. For all other Object pairs, including Array objects, equivalence is
+  // determined by having the same number of owned properties (as verified
+  // with Object.prototype.hasOwnProperty.call), the same set of keys
+  // (although not necessarily the same order), equivalent values for every
+  // corresponding key, and an identical 'prototype' property. Note: this
+  // accounts for both named and indexed properties on Arrays.
+  } else {
+    return objEquiv(actual, expected, opts);
+  }
+}
+
+function isUndefinedOrNull(value) {
+  return value === null || value === undefined;
+}
+
+function isBuffer (x) {
+  if (!x || typeof x !== 'object' || typeof x.length !== 'number') return false;
+  if (typeof x.copy !== 'function' || typeof x.slice !== 'function') {
+    return false;
+  }
+  if (x.length > 0 && typeof x[0] !== 'number') return false;
+  return true;
+}
+
+function objEquiv(a, b, opts) {
+  var i, key;
+  if (isUndefinedOrNull(a) || isUndefinedOrNull(b))
+    return false;
+  // an identical 'prototype' property.
+  if (a.prototype !== b.prototype) return false;
+  //~~~I've managed to break Object.keys through screwy arguments passing.
+  //   Converting to array solves the problem.
+  if (isArguments(a)) {
+    if (!isArguments(b)) {
+      return false;
+    }
+    a = pSlice.call(a);
+    b = pSlice.call(b);
+    return deepEqual(a, b, opts);
+  }
+  if (isBuffer(a)) {
+    if (!isBuffer(b)) {
+      return false;
+    }
+    if (a.length !== b.length) return false;
+    for (i = 0; i < a.length; i++) {
+      if (a[i] !== b[i]) return false;
+    }
+    return true;
+  }
+  try {
+    var ka = objectKeys(a),
+        kb = objectKeys(b);
+  } catch (e) {//happens when one is a string literal and the other isn't
+    return false;
+  }
+  // having the same number of owned properties (keys incorporates
+  // hasOwnProperty)
+  if (ka.length != kb.length)
+    return false;
+  //the same set of keys (although not necessarily the same order),
+  ka.sort();
+  kb.sort();
+  //~~~cheap key test
+  for (i = ka.length - 1; i >= 0; i--) {
+    if (ka[i] != kb[i])
+      return false;
+  }
+  //equivalent values for every corresponding key, and
+  //~~~possibly expensive deep test
+  for (i = ka.length - 1; i >= 0; i--) {
+    key = ka[i];
+    if (!deepEqual(a[key], b[key], opts)) return false;
+  }
+  return true;
+}
+
+},{"./lib/is_arguments.js":24,"./lib/keys.js":25}],24:[function(require,module,exports){
+var supportsArgumentsClass = (function(){
+  return Object.prototype.toString.call(arguments)
+})() == '[object Arguments]';
+
+exports = module.exports = supportsArgumentsClass ? supported : unsupported;
+
+exports.supported = supported;
+function supported(object) {
+  return Object.prototype.toString.call(object) == '[object Arguments]';
+};
+
+exports.unsupported = unsupported;
+function unsupported(object){
+  return object &&
+    typeof object == 'object' &&
+    typeof object.length == 'number' &&
+    Object.prototype.hasOwnProperty.call(object, 'callee') &&
+    !Object.prototype.propertyIsEnumerable.call(object, 'callee') ||
+    false;
+};
+
+},{}],25:[function(require,module,exports){
+exports = module.exports = typeof Object.keys === 'function'
+  ? Object.keys : shim;
+
+exports.shim = shim;
+function shim (obj) {
+  var keys = [];
+  for (var key in obj) keys.push(key);
+  return keys;
+}
+
+},{}],26:[function(require,module,exports){
 // If `Date.now()` is invoked twice quickly, it's possible to get two
 // identical time stamps. To avoid generation duplications, subsequent
 // calls are manually ordered to force uniqueness.
@@ -1644,7 +1841,7 @@ function timestamp() {
   return adjusted
 }
 
-},{}],22:[function(require,module,exports){
+},{}],27:[function(require,module,exports){
 "use strict";
 
 var bops = require('bops');
@@ -2150,7 +2347,7 @@ function sizeof(value) {
 
 
 
-},{"bops":23}],23:[function(require,module,exports){
+},{"bops":28}],28:[function(require,module,exports){
 var proto = {}
 module.exports = proto
 
@@ -2171,7 +2368,7 @@ function mix(from, into) {
   }
 }
 
-},{"./copy.js":26,"./create.js":27,"./from.js":28,"./is.js":29,"./join.js":30,"./read.js":32,"./subarray.js":33,"./to.js":34,"./write.js":35}],24:[function(require,module,exports){
+},{"./copy.js":31,"./create.js":32,"./from.js":33,"./is.js":34,"./join.js":35,"./read.js":37,"./subarray.js":38,"./to.js":39,"./write.js":40}],29:[function(require,module,exports){
 (function (exports) {
 	'use strict';
 
@@ -2257,7 +2454,7 @@ function mix(from, into) {
 	module.exports.fromByteArray = uint8ToBase64;
 }());
 
-},{}],25:[function(require,module,exports){
+},{}],30:[function(require,module,exports){
 module.exports = to_utf8
 
 var out = []
@@ -2332,7 +2529,7 @@ function reduced(list) {
   return out
 }
 
-},{}],26:[function(require,module,exports){
+},{}],31:[function(require,module,exports){
 module.exports = copy
 
 var slice = [].slice
@@ -2386,12 +2583,12 @@ function slow_copy(from, to, j, i, jend) {
   }
 }
 
-},{}],27:[function(require,module,exports){
+},{}],32:[function(require,module,exports){
 module.exports = function(size) {
   return new Uint8Array(size)
 }
 
-},{}],28:[function(require,module,exports){
+},{}],33:[function(require,module,exports){
 module.exports = from
 
 var base64 = require('base64-js')
@@ -2451,13 +2648,13 @@ function from_base64(str) {
   return new Uint8Array(base64.toByteArray(str)) 
 }
 
-},{"base64-js":24}],29:[function(require,module,exports){
+},{"base64-js":29}],34:[function(require,module,exports){
 
 module.exports = function(buffer) {
   return buffer instanceof Uint8Array;
 }
 
-},{}],30:[function(require,module,exports){
+},{}],35:[function(require,module,exports){
 module.exports = join
 
 function join(targets, hint) {
@@ -2495,7 +2692,7 @@ function get_length(targets) {
   return size
 }
 
-},{}],31:[function(require,module,exports){
+},{}],36:[function(require,module,exports){
 var proto
   , map
 
@@ -2517,7 +2714,7 @@ function get(target) {
   return out
 }
 
-},{}],32:[function(require,module,exports){
+},{}],37:[function(require,module,exports){
 module.exports = {
     readUInt8:      read_uint8
   , readInt8:       read_int8
@@ -2606,14 +2803,14 @@ function read_double_be(target, at) {
   return dv.getFloat64(at + target.byteOffset, false)
 }
 
-},{"./mapped.js":31}],33:[function(require,module,exports){
+},{"./mapped.js":36}],38:[function(require,module,exports){
 module.exports = subarray
 
 function subarray(buf, from, to) {
   return buf.subarray(from || 0, to || buf.length)
 }
 
-},{}],34:[function(require,module,exports){
+},{}],39:[function(require,module,exports){
 module.exports = to
 
 var base64 = require('base64-js')
@@ -2651,7 +2848,7 @@ function to_base64(buf) {
 }
 
 
-},{"base64-js":24,"to-utf8":25}],35:[function(require,module,exports){
+},{"base64-js":29,"to-utf8":30}],40:[function(require,module,exports){
 module.exports = {
     writeUInt8:      write_uint8
   , writeInt8:       write_int8
@@ -2739,7 +2936,7 @@ function write_double_be(target, value, at) {
   return dv.setFloat64(at + target.byteOffset, value, false)
 }
 
-},{"./mapped.js":31}],36:[function(require,module,exports){
+},{"./mapped.js":36}],41:[function(require,module,exports){
 
 
 module.exports = function() {
@@ -2776,7 +2973,342 @@ module.exports = function() {
   }
 }
 
-},{}],37:[function(require,module,exports){
+},{}],42:[function(require,module,exports){
+(function (Buffer){
+var multicb = require('multicb')
+var equal = require('deep-equal')
+var msgpack = require('msgpack-js')
+var eco = require('../lib')
+
+if (typeof setImmediate == 'undefined') {
+    setImmediate = function(cb) { setTimeout(cb, 0) }
+}
+
+exports.randomid = function() {
+  var arr = new Array(32)
+  for (var i=0; i < 32; i++)
+    arr[i] = Math.random() * 256;
+  return new Buffer(arr)
+}
+
+exports.makefeed = function() {
+  return {
+    id: exports.randomid(),
+    add: function(type, message, cb) {
+      var mid = exports.randomid()
+      var msg = {
+        id: mid,
+        type: type,
+        message: message,
+        author: this.id
+      }
+      this.addExisting(msg)
+      setImmediate(function() { cb(null, msg, mid) })
+    },
+    get: function(id, cb) { // :TODO: a function not yet in ssb, but probably needed
+      if (Buffer.isBuffer(id))
+        id = id.toString('hex')
+
+      if (id in this.msgMap)
+        return cb(null, this.msgs[this.msgMap[id]])
+
+      var err = new Error('not found')
+      err.notFound = true
+      cb(err)
+    },
+    addExisting: function(msg) { // non-ssb function used to mimic replication
+      if (msg.id.toString('hex') in this.msgMap)
+        return
+      this.msgMap[msg.id.toString('hex')] = this.msgs.length
+      this.msgs.push(msg)
+    },
+    msgs: [],
+    msgMap: {}
+  }
+}
+
+exports.makedb = function() {
+  return {
+    put: function(id, data, cb) {
+      if (Buffer.isBuffer(id))
+        id = id.toString('hex')
+      this.data[id] = data
+      setImmediate(function() { cb(null) })
+    },
+    get: function(id, cb) { 
+      if (Buffer.isBuffer(id))
+        id = id.toString('hex')
+
+      if (id in this.data)
+        return cb(null, this.data[id])
+
+      var err = new Error('not found')
+      err.notFound = true
+      cb(err)
+    },
+    close: function(cb) {
+      setImmediate(function() { cb(null) })
+    },
+    data: {}
+  }
+}
+
+exports.logHistory = function(h) {
+  h.forEach(function(entry) {
+    if (Array.isArray(entry)) {
+      console.log(entry[0].seq, 'BRANCH')
+      entry.forEach(function(branch, i) {
+        console.log('--', i, branch.id.toString('hex'))
+        console.log('-- =>', branch.msg.path, branch.msg.op, branch.msg.args[0], branch.msg.args[1], (branch.msg.prev) ? ('PREV='+branch.msg.prev.$msg.toString('hex')) : '')
+      })
+    } else {
+      console.log(entry.seq, entry.id.toString('hex'))
+      console.log('=>', entry.msg.path, entry.msg.op, entry.msg.args[0], entry.msg.args[1], (entry.msg.prev) ? ('PREV='+entry.msg.prev.$msg.toString('hex')) : '')
+    }
+  })
+}
+
+exports.simulator = function(t, dbs) {
+  var sim = {}
+
+  var runCounter = 0
+
+  sim.run = function(numNodes, syncFreq, numSyncs, decl, ops, finalState, cb) {
+    var feeds = [], idStrings
+    var objs = []; objs.length = numNodes
+    var topology = []
+
+    var runLetter = String.fromCharCode(65 + (runCounter++))
+    var logentries = []
+    var log = function() {
+      logentries.push(Array.prototype.slice.call(arguments))
+      // var entry = ['RUN_'+runLetter].concat(arguments)
+      // console.log.apply(console, entry)
+    }
+
+    log('Starting Simulation')
+    log('numNodes', numNodes)
+    log('syncFreq', syncFreq)
+    log('numSyncs', numSyncs)
+    log('decl', decl)
+    log('ops', JSON.stringify(ops))
+
+    if (numNodes < 2)
+      return cb(new Error('Must have at least 2 nodes'))
+
+    setup()
+
+    function setup() {
+      // build a topology
+      for (var i = 0; i < numNodes; i++) {
+        for (var j = 0; j < numNodes; j++) {
+          if (i !== j) topology.push([i, j])
+        }
+      }
+
+      // create feeds
+      log('creating', numNodes, 'feeds')
+      for (var i=0; i < numNodes; i++)
+        feeds.push(exports.makefeed())
+      var ids = feeds.map(function(feed) { return feed.id })
+      idStrings = ids.map(function(buf) { return buf.toString('hex') })
+
+      // create object
+      log('creating object')
+      eco.create(dbs[0], feeds[0], {members: ids}, function(err, obj0) {
+        if (err) return cb(err)
+        objs[0] = obj0
+        obj0.declare(decl, function(err, changes) {
+          if (err) return cb(err)
+          if (!changes.length) return cb(new Error('owner feed failed to construct object'))
+
+          // open object in non-owner feeds
+          log('opening object in nonowner feeds')
+          var done = multicb()
+          feeds.forEach(function(feed, i) {
+            if (i === 0) return // skip 1
+            var cb2 = done()
+            
+            // replicate
+            feeds[0].msgs.forEach(feed.addExisting.bind(feed))
+            
+            // reconstruct
+            eco.open(dbs[i], feed, obj0.getId(), function(err, obj) {
+              if (err) return cb2(err)
+              objs[i] = obj
+              obj.applyMessages(feed.msgs.slice(1), function(err, changes) {
+                if (err) return cb2(err)
+                if (!changes.length) return cb2(new Error('member feed failed to construct object'))
+                cb2()
+              })
+            })
+          })
+          done(function() {
+            log('created objects', objs.length)
+            doNextOp()
+          })
+        })
+      })
+    }
+
+    var syncCounter = 0
+    function doNextOp() {
+      log('object states', objs.map(function(obj) { return obj.get() }))
+
+      // run next op or stop at end
+      var op = ops.shift()
+      if (!op) return checkFinal()
+      doOp()
+
+      function doOp() {
+        log('executing', op)
+        // run on a random node
+        var nodei = Math.floor(Math.random() * numNodes)
+        log('using node', nodei)
+        applyOp(objs[nodei], op, doSync)
+      }
+
+      function doSync(err, changes) {
+        if (err) return cb(err)
+        log('changes', changes)
+
+        // time to sync?
+        syncCounter++
+        if (syncCounter < syncFreq)
+          return doNextOp() // not yet
+        syncCounter = 0
+
+        // run a random syncset
+        log('syncing...')
+        var top = topology.slice()
+        var starts = feeds.map(function(feed) { return feed.msgs.length })
+        for (var i=0; i < numSyncs; i++) {
+          // choose a random edge and sync
+          var s = top.splice(Math.floor(Math.random() * top.length), 1)[0]
+          log('...', s)
+          feeds[s[0]].msgs.forEach(feeds[s[1]].addExisting.bind(feeds[s[1]]))
+        }
+
+        // apply the messages of any updated feeds
+        var noupdates = true
+        var done = multicb()
+        feeds.forEach(function(feed, i) {
+          if (feed.msgs.length > starts[i]) {
+            log('node', i, 'apply', feed.msgs.length - starts[i])
+            log('obj', i, 'internal state', JSON.stringify(objs[i].getInternalState().data))
+            log('obj', i, 'internal meta', JSON.stringify(objs[i].getInternalState().meta))
+            objs[i].applyMessages(feed.msgs.slice(starts[i]), done())
+            noupdates = false
+          }
+        })
+        done(function(err, changes) {
+          if (err) return cb(err)
+          log('changes...')
+          changes.forEach(function(change, i) { log.apply(null, change[1]) })
+          doNextOp() // keep going
+        })
+        if (noupdates) // this can happen if none of the syncs involved changed nodes
+          done()()
+      }
+    }
+
+    function checkFinal() {
+      // do a final full sync
+      log('final full sync')
+      var starts = feeds.map(function(feed) { return feed.msgs.length })
+      for (var i=0; i < numNodes; i++) {
+        for (var j=0; j < numNodes; j++) {
+          feeds[i].msgs.forEach(feeds[j].addExisting.bind(feeds[j]))
+        }
+      }
+      log('starts', starts)
+
+      // apply the messages
+      var noupdates = true
+      var history = null
+      var done = multicb()
+      feeds.forEach(function(feed, i) {
+        if (feed.msgs.length > starts[i]) {
+          log('node', i, 'apply', feed.msgs.length - starts[i])
+          log('obj', i, 'internal state', JSON.stringify(objs[i].getInternalState().data))
+          log('obj', i, 'internal meta', JSON.stringify(objs[i].getInternalState().meta))
+          objs[i].applyMessages(feed.msgs.slice(starts[i]), done())
+          noupdates = false
+        }
+      })
+      done(function(err, changes) {
+        if (err) return cb(err)
+        log('changes', changes.map(function(change) { return change[1] }))
+        log('expected state', (finalState === true) ? 'convergent' : finalState)
+        log('final states', objs.map(function(obj) { return obj.get() }))
+
+        for (var i=0; i < numNodes; i++) {
+          var s = objs[i].get()
+          for (var k in s) {
+            if (Array.isArray(s[k]))
+              s[k] = s[k].sort() // sort for comparison
+          }
+
+          if (finalState === true) {
+            finalState = s // just checking convergence, so use this node's result for the next nodes
+            log('expecting convergence to', s)
+          }
+          else {
+            var passes = equal(s, finalState)
+            t.assert(passes)
+            if (!passes) { // OH NO
+              console.error('FAIL DUMP FOR RUN_' + runLetter)
+              logentries.forEach(function(entry) { console.error.apply(console, entry) })
+              console.error('MESSAGE HISTORIES')
+              feeds.forEach(function(feed) {
+                feed.msgs.forEach(function(msg) {
+                  console.error(msgpack.decode(msg.message), 'authi:', idStrings.indexOf(msg.author.toString('hex')))
+                })
+              })
+            }
+
+            // check history reconstruction as well
+            if (!history)
+              history = objs[i].getHistory()
+            else
+              t.assert(equal(history, objs[i].getHistory()))
+          }
+        }
+        cb()
+      })
+      if (noupdates) // this can happen if none of the syncs involved changed nodes
+        done()()
+    }
+  }
+
+  function applyOp(obj, op, cb) {
+    var k = op[1]
+    var state = obj.get()
+    switch (op[0]) {
+      case 'set': state[k] = op[2]; break
+      case 'inc': state[k] = (state[k]||0) + op[2]; break
+      case 'dec': state[k] = (state[k]||0) - op[2]; break
+      case 'add': state[k].push(op[2]); break
+      case 'rem': state[k] = (state[k]||[]); var i = state[k].indexOf(op[2]); if (i!==-1) { state[k].splice(i, 1); } break
+      case 'setkey': state[k] = state[k] || {}; state[k][op[2]] = op[3]; break
+      case 'inckey': state[k] = state[k] || {}; state[k][op[2]] = (state[k][op[2]]||0) + op[3]; break
+      case 'deckey': state[k] = state[k] || {}; state[k][op[2]] = (state[k][op[2]]||0) - op[3]; break
+    }
+    obj.put(state, cb)
+  }
+
+  sim.cleanup = function(cb) {
+    var done = multicb()
+    for (var i=0; i < dbs.length; i++) {
+      dbs[i].close(done())
+    }
+    done(cb)
+  }
+
+  return sim
+}
+}).call(this,require("buffer").Buffer)
+},{"../lib":9,"buffer":43,"deep-equal":23,"msgpack-js":27,"multicb":41}],43:[function(require,module,exports){
 /*!
  * The buffer module from node.js, for the browser.
  *
@@ -3828,7 +4360,7 @@ function decodeUtf8Char (str) {
   }
 }
 
-},{"base64-js":38,"ieee754":39,"is-array":40}],38:[function(require,module,exports){
+},{"base64-js":44,"ieee754":45,"is-array":46}],44:[function(require,module,exports){
 var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
 ;(function (exports) {
@@ -3950,7 +4482,7 @@ var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 	exports.fromByteArray = uint8ToBase64
 }(typeof exports === 'undefined' ? (this.base64js = {}) : exports))
 
-},{}],39:[function(require,module,exports){
+},{}],45:[function(require,module,exports){
 exports.read = function(buffer, offset, isLE, mLen, nBytes) {
   var e, m,
       eLen = nBytes * 8 - mLen - 1,
@@ -4036,7 +4568,7 @@ exports.write = function(buffer, value, offset, isLE, mLen, nBytes) {
   buffer[offset + i - d] |= s * 128;
 };
 
-},{}],40:[function(require,module,exports){
+},{}],46:[function(require,module,exports){
 
 /**
  * isArray
@@ -4071,7 +4603,7 @@ module.exports = isArray || function (val) {
   return !! val && '[object Array]' == str.call(val);
 };
 
-},{}],41:[function(require,module,exports){
+},{}],47:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -4374,4 +4906,4 @@ function isUndefined(arg) {
   return arg === void 0;
 }
 
-},{}]},{},[6]);
+},{}]},{},[8]);

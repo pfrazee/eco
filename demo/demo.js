@@ -1,53 +1,60 @@
 /** @jsx React.DOM */
 var eco = require('../lib')
-var Counter = require('./com/counter')
-var Register = require('./com/register')
-var Growset = require('./com/growset')
-var Onceset = require('./com/onceset')
-var Set = require('./com/set')
+var tutil = require('../test/test-utils')
+var Object = require('./com/object')
+var SyncButton = require('./com/sync-button')
 
-var objects = [
-    {counter: 0, reg: 'foo', gset: ['a'], oset: ['apple'], orset: ['orange'] },
-    {counter: 1, reg: 'bar', gset: ['b', 'c'], oset: [], orset: [] }
-]
-window.objects = objects
+var dbs = window.dbs = []
+var feeds = window.feeds = []
+var ecos = window.ecos = []
+var changes = window.changes = []
 
-var Object = React.createClass({
+function setup() {
+    dbs.push(tutil.makedb()); dbs.push(tutil.makedb())    
+    feeds.push(tutil.makefeed()); feeds.push(tutil.makefeed())
+
+    // create the object
+    eco.create(dbs[0], feeds[0], {members:[feeds[0].id,feeds[1].id]}, function(err, obj) {
+        if (err) throw err
+        obj.declare({ counter: 'counter', reg: 'register', gset: 'growset', oset: 'onceset', orset: 'set' }, function(err, changes) {
+            if (err) throw err
+
+            // open the object replica
+            feeds[0].msgs.forEach(feeds[1].addExisting.bind(feeds[1]))
+            eco.open(dbs[1], feeds[1], obj.getId(), function(err, obj2) {
+                if (err) throw err
+                obj2.applyMessages(feeds[1].msgs.slice(1), function(err, changes) {
+                    if (err) throw err
+
+                    ecos.push(obj); changes.push([])
+                    ecos.push(obj2); changes.push([])
+                    render()
+                })
+            })
+        })
+    })
+}
+
+var App = React.createClass({
+    dirtyStates: [],
     getInitialState: function() {
-        return { changes: [] }
+        return { canSync: true }
     },
-    onChange: function(color, text) {
-        this.state.changes.push({ color: color, text: text })
-        this.setState(this.state)
-    },
-    handleCommit: function() {
-        // TODO commit eco
-        this.setState({ changes: [] })
+    onDirty: function(i, dirty) {
+        this.dirtyStates[i] = dirty
+        var anyDirty = this.dirtyStates.reduce(function(s, acc) { return (s || acc) })
+        this.setState({ canSync: !anyDirty })
     },
     render: function() {
-        var changes = this.state.changes.map(function(change, i) {
-            return <div key={i} style={({color: change.color})}>{change.text}</div>
-        })
-        return <div className="object">
-            <Counter  obj={this.props.obj} key="counter" onChange={this.onChange} />
-            <Register obj={this.props.obj} key="reg"     onChange={this.onChange} />
-            <Growset  obj={this.props.obj} key="gset"    onChange={this.onChange} />
-            <Onceset  obj={this.props.obj} key="oset"    onChange={this.onChange} />
-            <Set      obj={this.props.obj} key="orset"   onChange={this.onChange} />
-            {changes}
-            <button onClick={this.handleCommit}>commit changes</button>
-        </div>
+        var objectNodes = ecos.map(function(obj, i) {
+            return (<Object obj={obj} onDirty={this.onDirty.bind(this, i)} key={('obj'+i)} />)
+        }.bind(this))
+        return <div>{objectNodes}<SyncButton canSync={this.state.canSync}/></div>
     }
 })
-var objectNodes = objects.map(function(obj, i) {
-    return (<Object obj={obj} key={('obj'+i)} />)
-})
 
-React.renderComponent(
-    <div>
-        {objectNodes}
-        <button>Add replica</button>
-    </div>,
-    document.getElementById('app')
-)
+function render() {
+    React.renderComponent(<div><App/></div>, document.getElementById('app'))
+}
 
+setup()

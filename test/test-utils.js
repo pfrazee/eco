@@ -3,6 +3,10 @@ var equal = require('deep-equal')
 var msgpack = require('msgpack-js')
 var eco = require('../lib')
 
+if (typeof setImmediate == 'undefined') {
+    setImmediate = function(cb) { setTimeout(cb, 0) }
+}
+
 exports.randomid = function() {
   var arr = new Array(32)
   for (var i=0; i < 32; i++)
@@ -49,10 +53,15 @@ exports.makefeed = function() {
 exports.makedb = function() {
   return {
     put: function(id, data, cb) {
+      if (Buffer.isBuffer(id))
+        id = id.toString('hex')
       this.data[id] = data
       setImmediate(function() { cb(null) })
     },
     get: function(id, cb) { 
+      if (Buffer.isBuffer(id))
+        id = id.toString('hex')
+
       if (id in this.data)
         return cb(null, this.data[id])
 
