@@ -10,7 +10,7 @@ var tutil = require('../test-utils')
 
 module.exports = function(opts) {
   tape('onceset - one member', function(t) {
-    var db = level(__dirname + '/../db', { db: memdown, valueEncoding: 'binary' })
+    var db = tutil.makedb()
     var feed = tutil.makefeed()
 
     // create a new object
@@ -110,8 +110,8 @@ module.exports = function(opts) {
     })
   })
   tape('onceset - two members, updated concurrently by both', function(t) {
-    var db1 = level(__dirname + '/../db', { db: memdown, valueEncoding: 'binary' })
-    var db2 = level(__dirname + '/../db2', { db: memdown, valueEncoding: 'binary' })
+    var db1 = tutil.makedb()
+    var db2 = tutil.makedb()
     var feed1 = tutil.makefeed()
     var feed2 = tutil.makefeed()
 

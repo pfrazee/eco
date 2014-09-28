@@ -10,9 +10,9 @@ var tutil = require('./test-utils')
 
 module.exports = function(opts) {
   tape('declaration buffering', function(t) {
-    var db1 = level(__dirname + '/db', { db: memdown, valueEncoding: 'binary' })
-    var db2 = level(__dirname + '/db2', { db: memdown, valueEncoding: 'binary' })
-    var db3 = level(__dirname + '/db3', { db: memdown, valueEncoding: 'binary' })
+    var db1 = tutil.makedb()
+    var db2 = tutil.makedb()
+    var db3 = tutil.makedb()
     var feed1 = tutil.makefeed()
     var feed2 = tutil.makefeed()
     var feed3 = tutil.makefeed()

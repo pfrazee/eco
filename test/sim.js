@@ -151,11 +151,7 @@ function runsims(sim, numNodes, syncFreq, numSyncs, cb) {
 }
 
 module.exports = function(opts) {
-  var dbs = [
-    level(__dirname + '/db', { db: memdown, valueEncoding: 'binary' }),
-    level(__dirname + '/db2', { db: memdown, valueEncoding: 'binary' }),
-    level(__dirname + '/db3', { db: memdown, valueEncoding: 'binary' })
-  ]
+  var dbs = [tutil.makedb(),tutil.makedb(),tutil.makedb()]
   for (var syncFreq=1; syncFreq <= 8; syncFreq++) {
     for (var numSyncs=1; numSyncs <= factorial(2); numSyncs++) {
       (function(syncFreq, numSyncs) {

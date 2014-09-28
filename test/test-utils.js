@@ -46,6 +46,27 @@ exports.makefeed = function() {
   }
 }
 
+exports.makedb = function() {
+  return {
+    put: function(id, data, cb) {
+      this.data[id] = data
+      setImmediate(function() { cb(null) })
+    },
+    get: function(id, cb) { 
+      if (id in this.data)
+        return cb(null, this.data[id])
+
+      var err = new Error('not found')
+      err.notFound = true
+      cb(err)
+    },
+    close: function(cb) {
+      setImmediate(function() { cb(null) })
+    },
+    data: {}
+  }
+}
+
 exports.logHistory = function(h) {
   h.forEach(function(entry) {
     if (Array.isArray(entry)) {
