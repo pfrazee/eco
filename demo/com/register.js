@@ -4,7 +4,9 @@ module.exports = React.createClass({
         return this.props.obj
     },
     handleSet: function(e) {
-        this.props.obj[this.props.key] = this.refs.reg.getDOMNode().value
+        var v = this.refs.reg.getDOMNode().value
+        this.props.obj[this.props.key] = v
+        this.props.onChange('green', this.props.key+': set '+v)
         this.setState(this.props.obj)
     },
     render: function() {

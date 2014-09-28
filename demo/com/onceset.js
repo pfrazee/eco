@@ -4,14 +4,23 @@ module.exports = React.createClass({
         return this.props.obj
     },
     handleAdd: function(e) {
-        this.props.obj[this.props.key].push(this.refs.entry.getDOMNode().value)
+        var v = this.refs.entry.getDOMNode().value
+        if (!v) return
+        
+        this.props.obj[this.props.key].push(v)
+        this.props.onChange('green', this.props.key+': add '+v)
+
         this.refs.entry.getDOMNode().value = ''
         this.setState(this.props.obj)
     },
     handleRemove: function(e) {
         var i = e.target.dataset.index
         if (i == void 0) return
+
+        var v = this.props.obj[this.props.key][i]
         this.props.obj[this.props.key].splice(i, 1)
+        this.props.onChange('red', this.props.key+': remove '+v)
+
         this.setState(this.props.obj)        
     },
     render: function() {

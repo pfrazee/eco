@@ -6,10 +6,12 @@ module.exports = React.createClass({displayName: 'exports',
     },
     handleInc: function(e) {
         this.props.obj[this.props.key]++
+        this.props.onChange('green', this.props.key+': inc')
         this.setState(this.props.obj)
     },
     handleDec: function(e) {
         this.props.obj[this.props.key]--
+        this.props.onChange('red', this.props.key+': dec')
         this.setState(this.props.obj)
     },
     render: function() {
@@ -27,7 +29,12 @@ module.exports = React.createClass({displayName: 'exports',
         return this.props.obj
     },
     handleAdd: function(e) {
-        this.props.obj[this.props.key].push(this.refs.entry.getDOMNode().value)
+        var v = this.refs.entry.getDOMNode().value
+        if (!v) return
+        
+        this.props.obj[this.props.key].push(v)
+        this.props.onChange('green', this.props.key+': add '+v)
+
         this.refs.entry.getDOMNode().value = ''
         this.setState(this.props.obj)
     },
@@ -50,14 +57,23 @@ module.exports = React.createClass({displayName: 'exports',
         return this.props.obj
     },
     handleAdd: function(e) {
-        this.props.obj[this.props.key].push(this.refs.entry.getDOMNode().value)
+        var v = this.refs.entry.getDOMNode().value
+        if (!v) return
+        
+        this.props.obj[this.props.key].push(v)
+        this.props.onChange('green', this.props.key+': add '+v)
+
         this.refs.entry.getDOMNode().value = ''
         this.setState(this.props.obj)
     },
     handleRemove: function(e) {
         var i = e.target.dataset.index
         if (i == void 0) return
+
+        var v = this.props.obj[this.props.key][i]
         this.props.obj[this.props.key].splice(i, 1)
+        this.props.onChange('red', this.props.key+': remove '+v)
+
         this.setState(this.props.obj)        
     },
     render: function() {
@@ -79,7 +95,9 @@ module.exports = React.createClass({displayName: 'exports',
         return this.props.obj
     },
     handleSet: function(e) {
-        this.props.obj[this.props.key] = this.refs.reg.getDOMNode().value
+        var v = this.refs.reg.getDOMNode().value
+        this.props.obj[this.props.key] = v
+        this.props.onChange('green', this.props.key+': set '+v)
         this.setState(this.props.obj)
     },
     render: function() {
@@ -92,25 +110,81 @@ module.exports = React.createClass({displayName: 'exports',
 })
 },{}],5:[function(require,module,exports){
 /** @jsx React.DOM */
+module.exports = React.createClass({displayName: 'exports',
+    getInitialState: function() {
+        return this.props.obj
+    },
+    handleAdd: function(e) {
+        var v = this.refs.entry.getDOMNode().value
+        if (!v) return
+
+        this.props.obj[this.props.key].push(v)
+        this.props.onChange('green', this.props.key+': add '+v)
+
+        this.refs.entry.getDOMNode().value = ''
+        this.setState(this.props.obj)
+    },
+    handleRemove: function(e) {
+        var i = e.target.dataset.index
+        if (i == void 0) return
+
+        var v = this.props.obj[this.props.key][i]
+        this.props.obj[this.props.key].splice(i, 1)
+        this.props.onChange('red', this.props.key+': remove '+v)
+        
+        this.setState(this.props.obj)
+    },
+    render: function() {
+        var values = this.props.obj[this.props.key].map(function(v, i) {
+            return React.DOM.li({key: ('orset'+i)}, v, " ", React.DOM.button({onClick: this.handleRemove, 'data-index': i}, "remove"))
+        }.bind(this))
+        return React.DOM.div({className: "orset set field"}, 
+            "Set", React.DOM.br(null), 
+            React.DOM.ul(null, values), 
+            React.DOM.input({type: "text", ref: "entry"}), 
+            React.DOM.button({onClick: this.handleAdd}, "add")
+        );
+    }
+})
+},{}],6:[function(require,module,exports){
+/** @jsx React.DOM */
 var eco = require('../lib')
 var Counter = require('./com/counter')
 var Register = require('./com/register')
 var Growset = require('./com/growset')
 var Onceset = require('./com/onceset')
+var Set = require('./com/set')
 
 var objects = [
-    {counter: 0, reg: 'foo', gset: ['a'], oset: ['apple'] },
-    {counter: 1, reg: 'bar', gset: ['b', 'c'], oset: [] }
+    {counter: 0, reg: 'foo', gset: ['a'], oset: ['apple'], orset: ['orange'] },
+    {counter: 1, reg: 'bar', gset: ['b', 'c'], oset: [], orset: [] }
 ]
 window.objects = objects
 
 var Object = React.createClass({displayName: 'Object',
+    getInitialState: function() {
+        return { changes: [] }
+    },
+    onChange: function(color, text) {
+        this.state.changes.push({ color: color, text: text })
+        this.setState(this.state)
+    },
+    handleCommit: function() {
+        // TODO commit eco
+        this.setState({ changes: [] })
+    },
     render: function() {
+        var changes = this.state.changes.map(function(change, i) {
+            return React.DOM.div({key: i, style: ({color: change.color})}, change.text)
+        })
         return React.DOM.div({className: "object"}, 
-            Counter({obj: this.props.obj, key: "counter"}), 
-            Register({obj: this.props.obj, key: "reg"}), 
-            Growset({obj: this.props.obj, key: "gset"}), 
-            Onceset({obj: this.props.obj, key: "oset"})
+            Counter({obj: this.props.obj, key: "counter", onChange: this.onChange}), 
+            Register({obj: this.props.obj, key: "reg", onChange: this.onChange}), 
+            Growset({obj: this.props.obj, key: "gset", onChange: this.onChange}), 
+            Onceset({obj: this.props.obj, key: "oset", onChange: this.onChange}), 
+            Set({obj: this.props.obj, key: "orset", onChange: this.onChange}), 
+            changes, 
+            React.DOM.button({onClick: this.handleCommit}, "commit changes")
         )
     }
 })
@@ -127,7 +201,7 @@ React.renderComponent(
 )
 
 
-},{"../lib":6,"./com/counter":1,"./com/growset":2,"./com/onceset":3,"./com/register":4}],6:[function(require,module,exports){
+},{"../lib":7,"./com/counter":1,"./com/growset":2,"./com/onceset":3,"./com/register":4,"./com/set":5}],7:[function(require,module,exports){
 var makeObject = require('./object')
 var msglib = require('./message')
 var msgpack = require('msgpack-js')
@@ -217,7 +291,7 @@ exports.open = function(db, feed, objid, cb) {
     })
   }
 }
-},{"./message":7,"./object":8,"msgpack-js":21}],7:[function(require,module,exports){
+},{"./message":8,"./object":9,"msgpack-js":22}],8:[function(require,module,exports){
 exports.create = function(objid, previd, path, op) {
   return {
     obj: { $msg: objid, $rel: 'eco-object' },
@@ -241,7 +315,7 @@ exports.validate = function(msg) {
   if (!msg.args)
     msg.args = []
 }
-},{}],8:[function(require,module,exports){
+},{}],9:[function(require,module,exports){
 var types   = require('./types')
 var msglib  = require('./message')
 var vclib   = require('./vclock')
@@ -645,7 +719,7 @@ module.exports = function(db, feed, state) {
   return obj
 }
 
-},{"./message":7,"./types":12,"./util":17,"./vclock":18,"events":40,"msgpack-js":21,"multicb":35}],9:[function(require,module,exports){
+},{"./message":8,"./types":13,"./util":18,"./vclock":19,"events":41,"msgpack-js":22,"multicb":36}],10:[function(require,module,exports){
 var msglib = require('../message')
 
 // Provide an initial value for the type given a declaration message
@@ -711,7 +785,7 @@ exports.diff = function(state, meta, current, other) {
   
   return [msglib.create(state.id, meta.prev, meta.key, op, diff)]
 }
-},{"../message":7}],10:[function(require,module,exports){
+},{"../message":8}],11:[function(require,module,exports){
 var msglib = require('../message')
 
 // Provide an initial value for the type given a declaration message
@@ -795,7 +869,7 @@ exports.diff = function(state, meta, current, other) {
 
   return msgs
 }
-},{"../message":7}],11:[function(require,module,exports){
+},{"../message":8}],12:[function(require,module,exports){
 var msglib = require('../message')
 var util   = require('../util')
 
@@ -868,7 +942,7 @@ exports.diff = function(state, meta, current, other) {
   
   return msgs
 }
-},{"../message":7,"../util":17}],12:[function(require,module,exports){
+},{"../message":8,"../util":18}],13:[function(require,module,exports){
 module.exports = {
   counter:    require('./counter'),
   counterset: require('./counterset'),
@@ -878,7 +952,7 @@ module.exports = {
   register:   require('./register'),
   set:        require('./set')
 }
-},{"./counter":9,"./counterset":10,"./growset":11,"./map":13,"./onceset":14,"./register":15,"./set":16}],13:[function(require,module,exports){
+},{"./counter":10,"./counterset":11,"./growset":12,"./map":14,"./onceset":15,"./register":16,"./set":17}],14:[function(require,module,exports){
 var mts    = require('monotonic-timestamp')
 var msglib = require('../message')
 var util   = require('../util')
@@ -1021,7 +1095,7 @@ For example, if we had the following sequence:
 3. set c=3 from bob, vts=[2, 1]
 If a node somehow applied #2 and #3 before #1, the vts would become [2, 1]. The #1 update would not apply after that.
 */
-},{"../message":7,"../util":17,"monotonic-timestamp":20}],14:[function(require,module,exports){
+},{"../message":8,"../util":18,"monotonic-timestamp":21}],15:[function(require,module,exports){
 var msglib = require('../message')
 var util   = require('../util')
 
@@ -1119,7 +1193,7 @@ exports.diff = function(state, meta, current, other) {
   
   return msgs
 }
-},{"../message":7,"../util":17}],15:[function(require,module,exports){
+},{"../message":8,"../util":18}],16:[function(require,module,exports){
 var msglib = require('../message')
 var util   = require('../util')
 var vclib  = require('../vclock')
@@ -1185,7 +1259,7 @@ exports.diff = function(state, meta, current, other) {
     throw new Error('Registers can only be set to values, not objects')
   return [msglib.create(state.id, meta.prev, meta.key, 'set', other)]
 }
-},{"../message":7,"../util":17,"../vclock":18}],16:[function(require,module,exports){
+},{"../message":8,"../util":18,"../vclock":19}],17:[function(require,module,exports){
 var mts    = require('monotonic-timestamp')
 var msglib = require('../message')
 var util   = require('../util')
@@ -1322,7 +1396,7 @@ exports.diff = function(state, meta, current, other) {
   
   return msgs
 }
-},{"../message":7,"../util":17,"monotonic-timestamp":20}],17:[function(require,module,exports){
+},{"../message":8,"../util":18,"monotonic-timestamp":21}],18:[function(require,module,exports){
 exports.deepclone = function(v) {
   return require('clone')(v)
 }
@@ -1359,7 +1433,7 @@ exports.valueToKey = function(v) {
 This guards against duplicates in `a` causing a remove, even though the value is present in both `a` and `b`
 If we remove `b.indexOf`, then `diffset([1, 1], [1])` would result in a remove of 1 because the second 1 in `a` would not have an `inboth` entry
 */
-},{"clone":19}],18:[function(require,module,exports){
+},{"clone":20}],19:[function(require,module,exports){
 exports.compare = function(a, b) {
   if (a.length != b.length) throw new Error('Inconsistent vector lengths')
   var r = 0
@@ -1390,7 +1464,7 @@ exports.test = function(a, op, b) {
     return exports.compare(a, b) == -1
   throw new Error('Vclock.js test() only supports "<" and ">"')
 }
-},{}],19:[function(require,module,exports){
+},{}],20:[function(require,module,exports){
 (function (Buffer){
 'use strict';
 
@@ -1523,7 +1597,7 @@ clone.clonePrototype = function(parent) {
 };
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":36}],20:[function(require,module,exports){
+},{"buffer":37}],21:[function(require,module,exports){
 // If `Date.now()` is invoked twice quickly, it's possible to get two
 // identical time stamps. To avoid generation duplications, subsequent
 // calls are manually ordered to force uniqueness.
@@ -1570,7 +1644,7 @@ function timestamp() {
   return adjusted
 }
 
-},{}],21:[function(require,module,exports){
+},{}],22:[function(require,module,exports){
 "use strict";
 
 var bops = require('bops');
@@ -2076,7 +2150,7 @@ function sizeof(value) {
 
 
 
-},{"bops":22}],22:[function(require,module,exports){
+},{"bops":23}],23:[function(require,module,exports){
 var proto = {}
 module.exports = proto
 
@@ -2097,7 +2171,7 @@ function mix(from, into) {
   }
 }
 
-},{"./copy.js":25,"./create.js":26,"./from.js":27,"./is.js":28,"./join.js":29,"./read.js":31,"./subarray.js":32,"./to.js":33,"./write.js":34}],23:[function(require,module,exports){
+},{"./copy.js":26,"./create.js":27,"./from.js":28,"./is.js":29,"./join.js":30,"./read.js":32,"./subarray.js":33,"./to.js":34,"./write.js":35}],24:[function(require,module,exports){
 (function (exports) {
 	'use strict';
 
@@ -2183,7 +2257,7 @@ function mix(from, into) {
 	module.exports.fromByteArray = uint8ToBase64;
 }());
 
-},{}],24:[function(require,module,exports){
+},{}],25:[function(require,module,exports){
 module.exports = to_utf8
 
 var out = []
@@ -2258,7 +2332,7 @@ function reduced(list) {
   return out
 }
 
-},{}],25:[function(require,module,exports){
+},{}],26:[function(require,module,exports){
 module.exports = copy
 
 var slice = [].slice
@@ -2312,12 +2386,12 @@ function slow_copy(from, to, j, i, jend) {
   }
 }
 
-},{}],26:[function(require,module,exports){
+},{}],27:[function(require,module,exports){
 module.exports = function(size) {
   return new Uint8Array(size)
 }
 
-},{}],27:[function(require,module,exports){
+},{}],28:[function(require,module,exports){
 module.exports = from
 
 var base64 = require('base64-js')
@@ -2377,13 +2451,13 @@ function from_base64(str) {
   return new Uint8Array(base64.toByteArray(str)) 
 }
 
-},{"base64-js":23}],28:[function(require,module,exports){
+},{"base64-js":24}],29:[function(require,module,exports){
 
 module.exports = function(buffer) {
   return buffer instanceof Uint8Array;
 }
 
-},{}],29:[function(require,module,exports){
+},{}],30:[function(require,module,exports){
 module.exports = join
 
 function join(targets, hint) {
@@ -2421,7 +2495,7 @@ function get_length(targets) {
   return size
 }
 
-},{}],30:[function(require,module,exports){
+},{}],31:[function(require,module,exports){
 var proto
   , map
 
@@ -2443,7 +2517,7 @@ function get(target) {
   return out
 }
 
-},{}],31:[function(require,module,exports){
+},{}],32:[function(require,module,exports){
 module.exports = {
     readUInt8:      read_uint8
   , readInt8:       read_int8
@@ -2532,14 +2606,14 @@ function read_double_be(target, at) {
   return dv.getFloat64(at + target.byteOffset, false)
 }
 
-},{"./mapped.js":30}],32:[function(require,module,exports){
+},{"./mapped.js":31}],33:[function(require,module,exports){
 module.exports = subarray
 
 function subarray(buf, from, to) {
   return buf.subarray(from || 0, to || buf.length)
 }
 
-},{}],33:[function(require,module,exports){
+},{}],34:[function(require,module,exports){
 module.exports = to
 
 var base64 = require('base64-js')
@@ -2577,7 +2651,7 @@ function to_base64(buf) {
 }
 
 
-},{"base64-js":23,"to-utf8":24}],34:[function(require,module,exports){
+},{"base64-js":24,"to-utf8":25}],35:[function(require,module,exports){
 module.exports = {
     writeUInt8:      write_uint8
   , writeInt8:       write_int8
@@ -2665,7 +2739,7 @@ function write_double_be(target, value, at) {
   return dv.setFloat64(at + target.byteOffset, value, false)
 }
 
-},{"./mapped.js":30}],35:[function(require,module,exports){
+},{"./mapped.js":31}],36:[function(require,module,exports){
 
 
 module.exports = function() {
@@ -2702,7 +2776,7 @@ module.exports = function() {
   }
 }
 
-},{}],36:[function(require,module,exports){
+},{}],37:[function(require,module,exports){
 /*!
  * The buffer module from node.js, for the browser.
  *
@@ -3754,7 +3828,7 @@ function decodeUtf8Char (str) {
   }
 }
 
-},{"base64-js":37,"ieee754":38,"is-array":39}],37:[function(require,module,exports){
+},{"base64-js":38,"ieee754":39,"is-array":40}],38:[function(require,module,exports){
 var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
 ;(function (exports) {
@@ -3876,7 +3950,7 @@ var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 	exports.fromByteArray = uint8ToBase64
 }(typeof exports === 'undefined' ? (this.base64js = {}) : exports))
 
-},{}],38:[function(require,module,exports){
+},{}],39:[function(require,module,exports){
 exports.read = function(buffer, offset, isLE, mLen, nBytes) {
   var e, m,
       eLen = nBytes * 8 - mLen - 1,
@@ -3962,7 +4036,7 @@ exports.write = function(buffer, value, offset, isLE, mLen, nBytes) {
   buffer[offset + i - d] |= s * 128;
 };
 
-},{}],39:[function(require,module,exports){
+},{}],40:[function(require,module,exports){
 
 /**
  * isArray
@@ -3997,7 +4071,7 @@ module.exports = isArray || function (val) {
   return !! val && '[object Array]' == str.call(val);
 };
 
-},{}],40:[function(require,module,exports){
+},{}],41:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -4300,4 +4374,4 @@ function isUndefined(arg) {
   return arg === void 0;
 }
 
-},{}]},{},[5]);
+},{}]},{},[6]);

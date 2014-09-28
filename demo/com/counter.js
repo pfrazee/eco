@@ -5,10 +5,12 @@ module.exports = React.createClass({
     },
     handleInc: function(e) {
         this.props.obj[this.props.key]++
+        this.props.onChange('green', this.props.key+': inc')
         this.setState(this.props.obj)
     },
     handleDec: function(e) {
         this.props.obj[this.props.key]--
+        this.props.onChange('red', this.props.key+': dec')
         this.setState(this.props.obj)
     },
     render: function() {
