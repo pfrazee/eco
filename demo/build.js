@@ -52,6 +52,30 @@ module.exports = React.createClass({displayName: 'exports',
 })
 },{}],3:[function(require,module,exports){
 /** @jsx React.DOM */
+module.exports = React.createClass({displayName: 'exports',
+  getInitialState: function() {
+    return { log: [] }
+  },
+  render: function() {
+    function renderMsg(id, msg) {
+      if (msg.op == 'init') return React.DOM.div({className: "log-entry", key: id}, "init")
+      if (msg.op == 'declare') return React.DOM.div({className: "log-entry", key: id}, "declare ", msg.args[0], " as type: ", msg.args[1])
+      return React.DOM.div({className: "log-entry", key: id}, 
+        msg.path, ": ", msg.op, " ", msg.args[0] || '', " ", msg.args[1] || ''
+      )
+    }
+    var entries = this.state.log.reverse().map(function(entry, i) {
+      var id = 'log-entry' + i
+      if (Array.isArray(entry)) {
+        return React.DOM.div({className: "log-branch"}, renderMsg(id+'-left', entry[0].msg), renderMsg(id+'-right', entry[1].msg))
+      }
+      return renderMsg(id, entry.msg)
+    })
+    return React.DOM.div({className: "log"}, entries)
+  }
+})
+},{}],4:[function(require,module,exports){
+/** @jsx React.DOM */
 var Counter = require('./counter')
 var Register = require('./register')
 var Growset = require('./growset')
@@ -60,7 +84,6 @@ var Set = require('./set')
 
 module.exports = React.createClass({displayName: 'exports',
   getInitialState: function() {
-    console.log(this.props.obj.get())
     return { changes: [], data: this.props.obj.get() }
   },
   onChange: function(color, text) {
@@ -93,7 +116,7 @@ module.exports = React.createClass({displayName: 'exports',
     )
   }
 })
-},{"./counter":1,"./growset":2,"./onceset":4,"./register":5,"./set":6}],4:[function(require,module,exports){
+},{"./counter":1,"./growset":2,"./onceset":5,"./register":6,"./set":7}],5:[function(require,module,exports){
 /** @jsx React.DOM */
 module.exports = React.createClass({displayName: 'exports',
   getInitialState: function() {
@@ -131,7 +154,7 @@ module.exports = React.createClass({displayName: 'exports',
     );
   }
 })
-},{}],5:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 /** @jsx React.DOM */
 module.exports = React.createClass({displayName: 'exports',
   getInitialState: function() {
@@ -151,7 +174,7 @@ module.exports = React.createClass({displayName: 'exports',
     );
   }
 })
-},{}],6:[function(require,module,exports){
+},{}],7:[function(require,module,exports){
 /** @jsx React.DOM */
 module.exports = React.createClass({displayName: 'exports',
   getInitialState: function() {
@@ -189,12 +212,13 @@ module.exports = React.createClass({displayName: 'exports',
     )
   }
 })
-},{}],7:[function(require,module,exports){
+},{}],8:[function(require,module,exports){
 /** @jsx React.DOM */
 var multicb = require('multicb')
 var eco = require('../lib')
 var tutil = require('../test/test-utils')
-var Object = require('./com/object')
+var ObjectCom = require('./com/object')
+var LogCom = require('./com/log')
 
 var dbs = window.dbs = []
 var feeds = window.feeds = []
@@ -221,6 +245,11 @@ function setup() {
           ecos.push(obj); changes.push([])
           ecos.push(obj2); changes.push([])
           render()
+
+          ecos[i].getHistory({includeMsg: true}, function(err, log) {
+            if (err) throw err
+            this.refs['log'+i].setState({ log: log })
+          }.bind(this))
         })
       })
     })
@@ -245,26 +274,38 @@ var App = React.createClass({displayName: 'App',
   getInitialState: function() {
     return { canSync: true }
   },
+  componentDidMount: function() {
+    updateLog(this, 0)
+    updateLog(this, 1)
+  },
   onDirty: function(i, dirty) {
     this.dirtyStates[i] = dirty
     var anyDirty = this.dirtyStates.reduce(function(s, acc) { return (s || acc) })
     this.setState({ canSync: !anyDirty })
+
+    if (!dirty) updateLog(this, i)
   },
   handleSync: function() {
     sync(function() {
       this.refs.obj0.setState(this.refs.obj0.getInitialState())
       this.refs.obj1.setState(this.refs.obj1.getInitialState())
+      updateLog(this, 0)
+      updateLog(this, 1)
     }.bind(this))
   },
   render: function() {
     var objectNodes = ecos.map(function(obj, i) {
       var id = 'obj' + i
-      return (Object({obj: obj, onDirty: this.onDirty.bind(this, i), key: id, ref: id}))
+      return (ObjectCom({obj: obj, onDirty: this.onDirty.bind(this, i), key: id, ref: id}))
     }.bind(this))
     var syncButton = (this.state.canSync) ?
       React.DOM.button({onClick: this.handleSync}, "sync") :
       React.DOM.button({disabled: true, onClick: this.handleSync}, "sync")
-    return React.DOM.div(null, objectNodes, syncButton)
+    var logNodes = ecos.map(function(obj, i) {
+      var id = 'log' + i
+      return (LogCom({key: id, ref: id}))
+    }.bind(this))
+    return React.DOM.div(null, objectNodes, syncButton, logNodes)
   }
 })
 
@@ -272,8 +313,15 @@ function render() {
   React.renderComponent(React.DOM.div(null, App(null)), document.getElementById('app'))
 }
 
+function updateLog(appCom, i) {
+    ecos[i].getHistory({includeMsg: true}, function(err, log) {
+      if (err) throw err
+      appCom.refs['log'+i].setState({ log: log })
+    })
+}
+
 setup()
-},{"../lib":8,"../test/test-utils":41,"./com/object":3,"multicb":40}],8:[function(require,module,exports){
+},{"../lib":9,"../test/test-utils":42,"./com/log":3,"./com/object":4,"multicb":41}],9:[function(require,module,exports){
 var makeObject = require('./object')
 var msglib = require('./message')
 var util = require('./util')
@@ -364,7 +412,7 @@ exports.open = function(db, feed, objid, cb) {
     })
   }
 }
-},{"./message":9,"./object":10,"./util":19,"msgpack-js":26}],9:[function(require,module,exports){
+},{"./message":10,"./object":11,"./util":20,"msgpack-js":27}],10:[function(require,module,exports){
 exports.create = function(objid, previd, path, op) {
   return {
     obj: { $msg: objid, $rel: 'eco-object' },
@@ -388,7 +436,7 @@ exports.validate = function(msg) {
   if (!msg.args)
     msg.args = []
 }
-},{}],10:[function(require,module,exports){
+},{}],11:[function(require,module,exports){
 var types   = require('./types')
 var msglib  = require('./message')
 var vclib   = require('./vclock')
@@ -797,7 +845,7 @@ module.exports = function(db, feed, state) {
   return obj
 }
 
-},{"./message":9,"./types":14,"./util":19,"./vclock":20,"events":45,"msgpack-js":26,"multicb":40}],11:[function(require,module,exports){
+},{"./message":10,"./types":15,"./util":20,"./vclock":21,"events":46,"msgpack-js":27,"multicb":41}],12:[function(require,module,exports){
 var msglib = require('../message')
 
 // Provide an initial value for the type given a declaration message
@@ -863,7 +911,7 @@ exports.diff = function(state, meta, current, other) {
   
   return [msglib.create(state.id, meta.prev, meta.key, op, diff)]
 }
-},{"../message":9}],12:[function(require,module,exports){
+},{"../message":10}],13:[function(require,module,exports){
 var msglib = require('../message')
 
 // Provide an initial value for the type given a declaration message
@@ -947,7 +995,7 @@ exports.diff = function(state, meta, current, other) {
 
   return msgs
 }
-},{"../message":9}],13:[function(require,module,exports){
+},{"../message":10}],14:[function(require,module,exports){
 var msglib = require('../message')
 var util   = require('../util')
 
@@ -1020,7 +1068,7 @@ exports.diff = function(state, meta, current, other) {
   
   return msgs
 }
-},{"../message":9,"../util":19}],14:[function(require,module,exports){
+},{"../message":10,"../util":20}],15:[function(require,module,exports){
 module.exports = {
   counter:    require('./counter'),
   counterset: require('./counterset'),
@@ -1030,7 +1078,7 @@ module.exports = {
   register:   require('./register'),
   set:        require('./set')
 }
-},{"./counter":11,"./counterset":12,"./growset":13,"./map":15,"./onceset":16,"./register":17,"./set":18}],15:[function(require,module,exports){
+},{"./counter":12,"./counterset":13,"./growset":14,"./map":16,"./onceset":17,"./register":18,"./set":19}],16:[function(require,module,exports){
 var mts    = require('monotonic-timestamp')
 var msglib = require('../message')
 var util   = require('../util')
@@ -1173,7 +1221,7 @@ For example, if we had the following sequence:
 3. set c=3 from bob, vts=[2, 1]
 If a node somehow applied #2 and #3 before #1, the vts would become [2, 1]. The #1 update would not apply after that.
 */
-},{"../message":9,"../util":19,"monotonic-timestamp":25}],16:[function(require,module,exports){
+},{"../message":10,"../util":20,"monotonic-timestamp":26}],17:[function(require,module,exports){
 var msglib = require('../message')
 var util   = require('../util')
 
@@ -1271,7 +1319,7 @@ exports.diff = function(state, meta, current, other) {
   
   return msgs
 }
-},{"../message":9,"../util":19}],17:[function(require,module,exports){
+},{"../message":10,"../util":20}],18:[function(require,module,exports){
 var msglib = require('../message')
 var util   = require('../util')
 var vclib  = require('../vclock')
@@ -1337,7 +1385,7 @@ exports.diff = function(state, meta, current, other) {
     throw new Error('Registers can only be set to values, not objects')
   return [msglib.create(state.id, meta.prev, meta.key, 'set', other)]
 }
-},{"../message":9,"../util":19,"../vclock":20}],18:[function(require,module,exports){
+},{"../message":10,"../util":20,"../vclock":21}],19:[function(require,module,exports){
 var mts    = require('monotonic-timestamp')
 var msglib = require('../message')
 var util   = require('../util')
@@ -1474,7 +1522,7 @@ exports.diff = function(state, meta, current, other) {
   
   return msgs
 }
-},{"../message":9,"../util":19,"monotonic-timestamp":25}],19:[function(require,module,exports){
+},{"../message":10,"../util":20,"monotonic-timestamp":26}],20:[function(require,module,exports){
 (function (Buffer){
 exports.deepclone = function(v) {
   return require('clone')(v)
@@ -1519,7 +1567,7 @@ This guards against duplicates in `a` causing a remove, even though the value is
 If we remove `b.indexOf`, then `diffset([1, 1], [1])` would result in a remove of 1 because the second 1 in `a` would not have an `inboth` entry
 */
 }).call(this,require("buffer").Buffer)
-},{"buffer":42,"clone":21}],20:[function(require,module,exports){
+},{"buffer":43,"clone":22}],21:[function(require,module,exports){
 exports.compare = function(a, b) {
   if (a.length != b.length) throw new Error('Inconsistent vector lengths')
   var r = 0
@@ -1550,7 +1598,7 @@ exports.test = function(a, op, b) {
     return exports.compare(a, b) == -1
   throw new Error('Vclock.js test() only supports "<" and ">"')
 }
-},{}],21:[function(require,module,exports){
+},{}],22:[function(require,module,exports){
 (function (Buffer){
 'use strict';
 
@@ -1683,7 +1731,7 @@ clone.clonePrototype = function(parent) {
 };
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":42}],22:[function(require,module,exports){
+},{"buffer":43}],23:[function(require,module,exports){
 var pSlice = Array.prototype.slice;
 var objectKeys = require('./lib/keys.js');
 var isArguments = require('./lib/is_arguments.js');
@@ -1779,7 +1827,7 @@ function objEquiv(a, b, opts) {
   return true;
 }
 
-},{"./lib/is_arguments.js":23,"./lib/keys.js":24}],23:[function(require,module,exports){
+},{"./lib/is_arguments.js":24,"./lib/keys.js":25}],24:[function(require,module,exports){
 var supportsArgumentsClass = (function(){
   return Object.prototype.toString.call(arguments)
 })() == '[object Arguments]';
@@ -1801,7 +1849,7 @@ function unsupported(object){
     false;
 };
 
-},{}],24:[function(require,module,exports){
+},{}],25:[function(require,module,exports){
 exports = module.exports = typeof Object.keys === 'function'
   ? Object.keys : shim;
 
@@ -1812,7 +1860,7 @@ function shim (obj) {
   return keys;
 }
 
-},{}],25:[function(require,module,exports){
+},{}],26:[function(require,module,exports){
 // If `Date.now()` is invoked twice quickly, it's possible to get two
 // identical time stamps. To avoid generation duplications, subsequent
 // calls are manually ordered to force uniqueness.
@@ -1859,7 +1907,7 @@ function timestamp() {
   return adjusted
 }
 
-},{}],26:[function(require,module,exports){
+},{}],27:[function(require,module,exports){
 "use strict";
 
 var bops = require('bops');
@@ -2365,7 +2413,7 @@ function sizeof(value) {
 
 
 
-},{"bops":27}],27:[function(require,module,exports){
+},{"bops":28}],28:[function(require,module,exports){
 var proto = {}
 module.exports = proto
 
@@ -2386,7 +2434,7 @@ function mix(from, into) {
   }
 }
 
-},{"./copy.js":30,"./create.js":31,"./from.js":32,"./is.js":33,"./join.js":34,"./read.js":36,"./subarray.js":37,"./to.js":38,"./write.js":39}],28:[function(require,module,exports){
+},{"./copy.js":31,"./create.js":32,"./from.js":33,"./is.js":34,"./join.js":35,"./read.js":37,"./subarray.js":38,"./to.js":39,"./write.js":40}],29:[function(require,module,exports){
 (function (exports) {
 	'use strict';
 
@@ -2472,7 +2520,7 @@ function mix(from, into) {
 	module.exports.fromByteArray = uint8ToBase64;
 }());
 
-},{}],29:[function(require,module,exports){
+},{}],30:[function(require,module,exports){
 module.exports = to_utf8
 
 var out = []
@@ -2547,7 +2595,7 @@ function reduced(list) {
   return out
 }
 
-},{}],30:[function(require,module,exports){
+},{}],31:[function(require,module,exports){
 module.exports = copy
 
 var slice = [].slice
@@ -2601,12 +2649,12 @@ function slow_copy(from, to, j, i, jend) {
   }
 }
 
-},{}],31:[function(require,module,exports){
+},{}],32:[function(require,module,exports){
 module.exports = function(size) {
   return new Uint8Array(size)
 }
 
-},{}],32:[function(require,module,exports){
+},{}],33:[function(require,module,exports){
 module.exports = from
 
 var base64 = require('base64-js')
@@ -2666,13 +2714,13 @@ function from_base64(str) {
   return new Uint8Array(base64.toByteArray(str)) 
 }
 
-},{"base64-js":28}],33:[function(require,module,exports){
+},{"base64-js":29}],34:[function(require,module,exports){
 
 module.exports = function(buffer) {
   return buffer instanceof Uint8Array;
 }
 
-},{}],34:[function(require,module,exports){
+},{}],35:[function(require,module,exports){
 module.exports = join
 
 function join(targets, hint) {
@@ -2710,7 +2758,7 @@ function get_length(targets) {
   return size
 }
 
-},{}],35:[function(require,module,exports){
+},{}],36:[function(require,module,exports){
 var proto
   , map
 
@@ -2732,7 +2780,7 @@ function get(target) {
   return out
 }
 
-},{}],36:[function(require,module,exports){
+},{}],37:[function(require,module,exports){
 module.exports = {
     readUInt8:      read_uint8
   , readInt8:       read_int8
@@ -2821,14 +2869,14 @@ function read_double_be(target, at) {
   return dv.getFloat64(at + target.byteOffset, false)
 }
 
-},{"./mapped.js":35}],37:[function(require,module,exports){
+},{"./mapped.js":36}],38:[function(require,module,exports){
 module.exports = subarray
 
 function subarray(buf, from, to) {
   return buf.subarray(from || 0, to || buf.length)
 }
 
-},{}],38:[function(require,module,exports){
+},{}],39:[function(require,module,exports){
 module.exports = to
 
 var base64 = require('base64-js')
@@ -2866,7 +2914,7 @@ function to_base64(buf) {
 }
 
 
-},{"base64-js":28,"to-utf8":29}],39:[function(require,module,exports){
+},{"base64-js":29,"to-utf8":30}],40:[function(require,module,exports){
 module.exports = {
     writeUInt8:      write_uint8
   , writeInt8:       write_int8
@@ -2954,7 +3002,7 @@ function write_double_be(target, value, at) {
   return dv.setFloat64(at + target.byteOffset, value, false)
 }
 
-},{"./mapped.js":35}],40:[function(require,module,exports){
+},{"./mapped.js":36}],41:[function(require,module,exports){
 
 
 module.exports = function() {
@@ -2991,7 +3039,7 @@ module.exports = function() {
   }
 }
 
-},{}],41:[function(require,module,exports){
+},{}],42:[function(require,module,exports){
 (function (Buffer){
 var multicb = require('multicb')
 var equal = require('deep-equal')
@@ -3326,7 +3374,7 @@ exports.simulator = function(t, dbs) {
   return sim
 }
 }).call(this,require("buffer").Buffer)
-},{"../lib":8,"buffer":42,"deep-equal":22,"msgpack-js":26,"multicb":40}],42:[function(require,module,exports){
+},{"../lib":9,"buffer":43,"deep-equal":23,"msgpack-js":27,"multicb":41}],43:[function(require,module,exports){
 /*!
  * The buffer module from node.js, for the browser.
  *
@@ -4497,7 +4545,7 @@ function assert (test, message) {
   if (!test) throw new Error(message || 'Failed assertion')
 }
 
-},{"base64-js":43,"ieee754":44}],43:[function(require,module,exports){
+},{"base64-js":44,"ieee754":45}],44:[function(require,module,exports){
 var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
 ;(function (exports) {
@@ -4619,7 +4667,7 @@ var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 	exports.fromByteArray = uint8ToBase64
 }(typeof exports === 'undefined' ? (this.base64js = {}) : exports))
 
-},{}],44:[function(require,module,exports){
+},{}],45:[function(require,module,exports){
 exports.read = function(buffer, offset, isLE, mLen, nBytes) {
   var e, m,
       eLen = nBytes * 8 - mLen - 1,
@@ -4705,7 +4753,7 @@ exports.write = function(buffer, value, offset, isLE, mLen, nBytes) {
   buffer[offset + i - d] |= s * 128;
 };
 
-},{}],45:[function(require,module,exports){
+},{}],46:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -5008,4 +5056,4 @@ function isUndefined(arg) {
   return arg === void 0;
 }
 
-},{}]},{},[7]);
+},{}]},{},[8]);

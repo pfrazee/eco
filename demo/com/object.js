@@ -7,7 +7,6 @@ var Set = require('./set')
 
 module.exports = React.createClass({
   getInitialState: function() {
-    console.log(this.props.obj.get())
     return { changes: [], data: this.props.obj.get() }
   },
   onChange: function(color, text) {

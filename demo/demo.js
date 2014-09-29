@@ -2,7 +2,8 @@
 var multicb = require('multicb')
 var eco = require('../lib')
 var tutil = require('../test/test-utils')
-var Object = require('./com/object')
+var ObjectCom = require('./com/object')
+var LogCom = require('./com/log')
 
 var dbs = window.dbs = []
 var feeds = window.feeds = []
@@ -29,6 +30,11 @@ function setup() {
           ecos.push(obj); changes.push([])
           ecos.push(obj2); changes.push([])
           render()
+
+          ecos[i].getHistory({includeMsg: true}, function(err, log) {
+            if (err) throw err
+            this.refs['log'+i].setState({ log: log })
+          }.bind(this))
         })
       })
     })
@@ -53,31 +59,50 @@ var App = React.createClass({
   getInitialState: function() {
     return { canSync: true }
   },
+  componentDidMount: function() {
+    updateLog(this, 0)
+    updateLog(this, 1)
+  },
   onDirty: function(i, dirty) {
     this.dirtyStates[i] = dirty
     var anyDirty = this.dirtyStates.reduce(function(s, acc) { return (s || acc) })
     this.setState({ canSync: !anyDirty })
+
+    if (!dirty) updateLog(this, i)
   },
   handleSync: function() {
     sync(function() {
       this.refs.obj0.setState(this.refs.obj0.getInitialState())
       this.refs.obj1.setState(this.refs.obj1.getInitialState())
+      updateLog(this, 0)
+      updateLog(this, 1)
     }.bind(this))
   },
   render: function() {
     var objectNodes = ecos.map(function(obj, i) {
       var id = 'obj' + i
-      return (<Object obj={obj} onDirty={this.onDirty.bind(this, i)} key={id} ref={id} />)
+      return (<ObjectCom obj={obj} onDirty={this.onDirty.bind(this, i)} key={id} ref={id} />)
     }.bind(this))
     var syncButton = (this.state.canSync) ?
       <button onClick={this.handleSync}>sync</button> :
       <button disabled onClick={this.handleSync}>sync</button>
-    return <div>{objectNodes}{syncButton}</div>
+    var logNodes = ecos.map(function(obj, i) {
+      var id = 'log' + i
+      return (<LogCom key={id} ref={id} />)
+    }.bind(this))
+    return <div>{objectNodes}{syncButton}{logNodes}</div>
   }
 })
 
 function render() {
   React.renderComponent(<div><App/></div>, document.getElementById('app'))
+}
+
+function updateLog(appCom, i) {
+    ecos[i].getHistory({includeMsg: true}, function(err, log) {
+      if (err) throw err
+      appCom.refs['log'+i].setState({ log: log })
+    })
 }
 
 setup()
