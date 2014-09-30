@@ -9,8 +9,8 @@ module.exports = React.createClass({
     this.props.onChange('green', 'register: set '+v)
     this.setState(this.props.obj)
   },
-  onChange: function() {
-    this.state.reg = event.target.value
+  onChange: function(event) {
+    this.props.obj.reg = event.target.value
     this.setState(this.state);
   },
   render: function() {
