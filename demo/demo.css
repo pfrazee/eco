@@ -44,6 +44,9 @@ ul li {
   float: right;
   margin-right: 70px;
 }
+.object .btn {
+  margin-left: 1px;
+}
 .panel {
   margin: 0;
 }
