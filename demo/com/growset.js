@@ -10,7 +10,7 @@ module.exports = React.createClass({
     this.props.obj.gset.push(v)
     this.props.onChange('green', 'growset: add '+v)      
 
-    his.refs.entry.getDOMNode().value = ''
+    this.refs.entry.getDOMNode().value = ''
     this.setState(this.props.obj)
   },
   render: function() {
@@ -21,7 +21,7 @@ module.exports = React.createClass({
       Growset<br/>
       <ul>{values}</ul>
       <input type="text" ref="entry" />
-      <button onClick={this.handleAdd}>add</button>
+      <button className="btn btn-default btn-xs" onClick={this.handleAdd}>add</button>
     </div>;
   }
 })

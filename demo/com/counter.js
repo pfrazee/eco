@@ -17,7 +17,7 @@ module.exports = React.createClass({
     return <div className="counter field">
       Counter<br/>
       <input type="text" value={this.props.obj.counter} readOnly />
-      <button onClick={this.handleInc}>+</button><button onClick={this.handleDec}>-</button>
+      <button className="btn btn-default btn-xs" onClick={this.handleInc}>+</button><button className="btn btn-default btn-xs" onClick={this.handleDec}>&ndash;</button>
     </div>;
   }
 })

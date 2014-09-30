@@ -30,11 +30,6 @@ function setup() {
           ecos.push(obj); changes.push([])
           ecos.push(obj2); changes.push([])
           render()
-
-          ecos[i].getHistory({includeMsg: true}, function(err, log) {
-            if (err) throw err
-            this.refs['log'+i].setState({ log: log })
-          }.bind(this))
         })
       })
     })
@@ -81,16 +76,16 @@ var App = React.createClass({
   render: function() {
     var objectNodes = ecos.map(function(obj, i) {
       var id = 'obj' + i
-      return (<ObjectCom obj={obj} onDirty={this.onDirty.bind(this, i)} key={id} ref={id} />)
+      return (<ObjectCom obj={obj} onDirty={this.onDirty.bind(this, i)} key={id} ref={id} objnum={i} />)
     }.bind(this))
     var syncButton = (this.state.canSync) ?
-      <button onClick={this.handleSync}>sync</button> :
-      <button disabled onClick={this.handleSync}>sync</button>
+      <button className="btn btn-success" onClick={this.handleSync}>sync</button> :
+      <button className="btn btn-default" disabled onClick={this.handleSync}>sync</button>
     var logNodes = ecos.map(function(obj, i) {
       var id = 'log' + i
-      return (<LogCom key={id} ref={id} />)
+      return (<LogCom key={id} ref={id} objnum={i} />)
     }.bind(this))
-    return <div>{objectNodes}{syncButton}{logNodes}</div>
+    return <div>{objectNodes}<div className="sync-btn text-success">&larr; {syncButton} &rarr;</div>{logNodes}</div>
   }
 })
 

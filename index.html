@@ -1,15 +1,36 @@
 <html>
   <head>
     <title>ECO Demo</title>
-    <link rel=stylesheet href=demo/demo.css>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css">
+    <link rel="stylesheet" href="demo/demo.css">
+    <meta charset="utf-8">
   </head>
   <body>
-      
-    <div id="app">
-      <div v-repeat="objects" v-component="object"></div>
-      
-    </div>
     
+    <div id="intro">
+      <h1>ECO</h1>
+      <p>[ <a href="https://github.com/pfraze/eco">repository</a> | <a href="https://github.com/pfraze/eco/issues">issues</a> | <a href="http://twitter.com/pfrazee">@pfrazee</a> ]</p>
+    </div>
+    <div id="app"></div>
+    <div id="explanation">
+      <hr>
+      <h2>What is this?</h2>
+      <p>ECO stands for "Eventually Consistent Objects." It is a library for sharing distributed state between users on the <a href="https://github.com/pfraze/phoenix">Phoenix</a>/<a href="https://github.com/dominictarr/secure-scuttlebutt">SSB</a> network. It provides applications with an API to post object updates onto the feed and merge in updates from other users. Think of it like "Git for object state."</p>
+      <p>To see how it works, play with the UI above. Each replica represents a different user's view of the same object. Make changes to a replica, commit the changes, and notice how the log is updated. Then hit the sync button: the other replica should adopt the changes and update its log as well.</p>
+      <p>(Try commiting updates on both replicas, then hit sync to see how concurrent changes are merged.)</p>
+      <p>Each field in ECO is a different <a href="https://github.com/pfraze/crdt_notes">Conflict-Free Replicated Data Type</a>. They are:</p>
+      <ul>
+        <li><strong>Counter</strong>: a number which combines the increments and decrements of all users.</li>
+        <li><strong>CounterSet</strong>: a K/V-map of Counters (not in the demo).</li>
+        <li><strong>Register</strong>: a field which takes the most recent write ("Last-Write Wins").</li>
+        <li><strong>Growset</strong>: an unordered set which can only add values.</li>
+        <li><strong>Onceset</strong>: an unordered set which can add and remove values, but can never re-add a value after it's been removed.</li>
+        <li><strong>Set</strong>: an unordered set which can add and remove values freely.</li>
+        <li><strong>Map</strong>: a K/V-map of fields which behave like registers (not in the demo).</li>
+      </ul>
+      <br>
+      <p>[ <a href="https://github.com/pfraze/eco">repository</a> | <a href="https://github.com/pfraze/eco/issues">issues</a> | <a href="http://twitter.com/pfrazee">@pfrazee</a> ]</p>
+    </div>
 
     <script src="node_modules/react/dist/react.js"></script>
     <script src="demo/build.js"></script>

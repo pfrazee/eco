@@ -1,8 +1,97 @@
+ul {
+  margin: 0;
+  padding-left: 20px;
+}
+ul li {
+  margin: 5px 0;
+}
+
+#intro {
+  text-align: center;  
+}
+
+#app {
+  width: 650px;
+  margin: 0 auto;
+  font-size: 14px;
+  padding: 1em;
+}
+
+#explanation {
+  width: 650px;
+  margin: 0 auto;
+  padding: 20px 0;
+  clear: both;
+}
+#explanation hr {
+  margin-bottom: 25px;
+}
+#explanation p, #explanation h2 {
+  margin-bottom: 16px;
+}
+#explanation p, #explanation li {
+  font-size: 16px;
+}
+
 .object {
-    border: 1px solid black;
-    margin: 10px;
-    padding: 10px;
+  width: 200px;
+}
+.object:nth-child(1) {
+  float: left;
+  margin-left: 70px;
+}
+.object:nth-child(2) {
+  float: right;
+  margin-right: 70px;
+}
+.panel {
+  margin: 0;
+}
+.panel-warning {
+  border-color: rgba(202, 191, 66, 1);
+}
+.panel-warning > .panel-heading, .panel-warning > .panel-footer {
+  color: #FFF;
+  background-color: rgba(202, 191, 66, 1);
+  border-color: rgba(202, 191, 66, 1);
+}
+.panel-primary > .panel-footer {
+  color: #FFF;
+  background-color: #428BCA;
+  border-color: #428BCA;
+}
+
+.field {
+  margin: 10px 0;
 }
 .field input {
-    width: 100px
+  width: 100px
+}
+
+.changes {
+  margin: 10px 0;
+}
+.changes button {
+  margin-top: 10px;
+}
+
+.sync-btn {
+  clear: both;
+  text-align: center;
+}
+
+.log {
+  width: 270px;
+}
+.log:nth-child(4) {
+  float: left;
+}
+.log:nth-child(5) {
+  float: right;
+}
+.log p {
+  margin: 3px 0;
+}
+.log ul li:first-child {
+  margin-top: -2px;
 }

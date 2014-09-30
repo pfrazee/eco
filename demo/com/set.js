@@ -31,7 +31,7 @@ module.exports = React.createClass({
       Set<br/>
       <ul>{values}</ul>
       <input type="text" ref="entry" />
-      <button onClick={this.handleAdd}>add</button>
+      <button className="btn btn-default btn-xs" onClick={this.handleAdd}>add</button>
     </div>
   }
 })

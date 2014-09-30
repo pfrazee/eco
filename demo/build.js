@@ -18,7 +18,7 @@ module.exports = React.createClass({displayName: 'exports',
     return React.DOM.div({className: "counter field"}, 
       "Counter", React.DOM.br(null), 
       React.DOM.input({type: "text", value: this.props.obj.counter, readOnly: true}), 
-      React.DOM.button({onClick: this.handleInc}, "+"), React.DOM.button({onClick: this.handleDec}, "-")
+      React.DOM.button({className: "btn btn-default btn-xs", onClick: this.handleInc}, "+"), React.DOM.button({className: "btn btn-default btn-xs", onClick: this.handleDec}, "–")
     );
   }
 })
@@ -35,7 +35,7 @@ module.exports = React.createClass({displayName: 'exports',
     this.props.obj.gset.push(v)
     this.props.onChange('green', 'growset: add '+v)      
 
-    his.refs.entry.getDOMNode().value = ''
+    this.refs.entry.getDOMNode().value = ''
     this.setState(this.props.obj)
   },
   render: function() {
@@ -46,32 +46,42 @@ module.exports = React.createClass({displayName: 'exports',
       "Growset", React.DOM.br(null), 
       React.DOM.ul(null, values), 
       React.DOM.input({type: "text", ref: "entry"}), 
-      React.DOM.button({onClick: this.handleAdd}, "add")
+      React.DOM.button({className: "btn btn-default btn-xs", onClick: this.handleAdd}, "add")
     );
   }
 })
 },{}],3:[function(require,module,exports){
 /** @jsx React.DOM */
+
+var paneltypes = ['panel-primary', 'panel-warning']
+
 module.exports = React.createClass({displayName: 'exports',
   getInitialState: function() {
     return { log: [] }
   },
   render: function() {
     function renderMsg(id, msg) {
-      if (msg.op == 'init') return React.DOM.div({className: "log-entry", key: id}, "init")
-      if (msg.op == 'declare') return React.DOM.div({className: "log-entry", key: id}, "declare ", msg.args[0], " as type: ", msg.args[1])
-      return React.DOM.div({className: "log-entry", key: id}, 
+      if (msg.op == 'init') return React.DOM.p({className: "log-entry", key: id}, "init")
+      if (msg.op == 'declare') return React.DOM.p({className: "log-entry", key: id}, "declare ", msg.args[0], " as type: ", msg.args[1])
+      return React.DOM.p({className: "log-entry", key: id}, 
         msg.path, ": ", msg.op, " ", msg.args[0] || '', " ", msg.args[1] || ''
       )
     }
-    var entries = this.state.log.reverse().map(function(entry, i) {
+    var entries = this.state.log.map(function(entry, i) {
       var id = 'log-entry' + i
       if (Array.isArray(entry)) {
-        return React.DOM.div({className: "log-branch"}, renderMsg(id+'-left', entry[0].msg), renderMsg(id+'-right', entry[1].msg))
+        return React.DOM.div({className: "log-branch"}, 
+          React.DOM.small(null, "concurrent:"), 
+          React.DOM.ul(null, 
+            React.DOM.li(null, renderMsg(id+'-left', entry[0].msg)), 
+            React.DOM.li(null, renderMsg(id+'-right', entry[1].msg))
+          )
+        )
       }
       return renderMsg(id, entry.msg)
-    })
-    return React.DOM.div({className: "log"}, entries)
+    }).reverse()
+    var panelCls = 'log panel ' + paneltypes[this.props.objnum]
+    return React.DOM.div({className: panelCls}, React.DOM.div({className: "panel-body"}, entries), React.DOM.div({className: "panel-footer"}, "Log ", this.props.objnum+1))
   }
 })
 },{}],4:[function(require,module,exports){
@@ -82,12 +92,18 @@ var Growset = require('./growset')
 var Onceset = require('./onceset')
 var Set = require('./set')
 
+var colors = {
+  green: 'rgb(85, 131, 80)',
+  red: 'rgb(182, 105, 105)'
+}
+var paneltypes = ['panel-primary', 'panel-warning']
+
 module.exports = React.createClass({displayName: 'exports',
   getInitialState: function() {
     return { changes: [], data: this.props.obj.get() }
   },
   onChange: function(color, text) {
-    this.state.changes.push({ color: color, text: text })
+    this.state.changes.push({ color: colors[color], text: text })
     this.setState(this.state)
     this.props.onDirty(true)
   },
@@ -104,15 +120,19 @@ module.exports = React.createClass({displayName: 'exports',
       return React.DOM.div({key: id, style: ({color: change.color})}, change.text)
     })
     var commitButton = (this.state.changes.length) ?
-      React.DOM.button({onClick: this.handleCommit}, "commit changes") :
-      React.DOM.button({onClick: this.handleCommit, disabled: true}, "commit changes")
-    return React.DOM.div({className: "object"}, 
-      Counter({obj: this.state.data, onChange: this.onChange}), 
-      Register({obj: this.state.data, onChange: this.onChange}), 
-      Growset({obj: this.state.data, onChange: this.onChange}), 
-      Onceset({obj: this.state.data, onChange: this.onChange}), 
-      Set({obj: this.state.data, onChange: this.onChange}), 
-      changes, " ", commitButton
+      React.DOM.button({className: "btn btn-success btn-sm", onClick: this.handleCommit}, "commit changes") :
+      React.DOM.button({className: "btn btn-default btn-sm", onClick: this.handleCommit, disabled: true}, "commit changes")
+    var panelCls = 'object panel ' + paneltypes[this.props.objnum]
+    return React.DOM.div({className: panelCls}, 
+      React.DOM.div({className: "panel-heading"}, React.DOM.h3({className: "panel-title"}, "Replica ", this.props.objnum+1)), 
+      React.DOM.div({className: "panel-body"}, 
+        Counter({obj: this.state.data, onChange: this.onChange}), 
+        Register({obj: this.state.data, onChange: this.onChange}), 
+        Growset({obj: this.state.data, onChange: this.onChange}), 
+        Onceset({obj: this.state.data, onChange: this.onChange}), 
+        Set({obj: this.state.data, onChange: this.onChange}), 
+        React.DOM.div({className: "changes"}, changes, " ", commitButton)
+      )
     )
   }
 })
@@ -150,7 +170,7 @@ module.exports = React.createClass({displayName: 'exports',
       "Onceset", React.DOM.br(null), 
       React.DOM.ul(null, values), 
       React.DOM.input({type: "text", ref: "entry"}), 
-      React.DOM.button({onClick: this.handleAdd}, "add")
+      React.DOM.button({className: "btn btn-default btn-xs", onClick: this.handleAdd}, "add")
     );
   }
 })
@@ -160,17 +180,21 @@ module.exports = React.createClass({displayName: 'exports',
   getInitialState: function() {
     return this.props.obj
   },
-  handleSet: function(e) {
+  onSet: function(e) {
     var v = this.refs.reg.getDOMNode().value
     this.props.obj.reg = v
     this.props.onChange('green', 'register: set '+v)
     this.setState(this.props.obj)
   },
+  onChange: function() {
+    this.state.reg = event.target.value
+    this.setState(this.state);
+  },
   render: function() {
     return React.DOM.div({className: "register field"}, 
       "Register", React.DOM.br(null), 
-      React.DOM.input({type: "text", defaultValue: this.props.obj.reg, ref: "reg"}), 
-      React.DOM.button({onClick: this.handleSet}, "set")
+      React.DOM.input({type: "text", value: this.props.obj.reg, onChange: this.onChange, ref: "reg"}), 
+      React.DOM.button({className: "btn btn-default btn-xs", onClick: this.onSet}, "set")
     );
   }
 })
@@ -208,7 +232,7 @@ module.exports = React.createClass({displayName: 'exports',
       "Set", React.DOM.br(null), 
       React.DOM.ul(null, values), 
       React.DOM.input({type: "text", ref: "entry"}), 
-      React.DOM.button({onClick: this.handleAdd}, "add")
+      React.DOM.button({className: "btn btn-default btn-xs", onClick: this.handleAdd}, "add")
     )
   }
 })
@@ -245,11 +269,6 @@ function setup() {
           ecos.push(obj); changes.push([])
           ecos.push(obj2); changes.push([])
           render()
-
-          ecos[i].getHistory({includeMsg: true}, function(err, log) {
-            if (err) throw err
-            this.refs['log'+i].setState({ log: log })
-          }.bind(this))
         })
       })
     })
@@ -296,16 +315,16 @@ var App = React.createClass({displayName: 'App',
   render: function() {
     var objectNodes = ecos.map(function(obj, i) {
       var id = 'obj' + i
-      return (ObjectCom({obj: obj, onDirty: this.onDirty.bind(this, i), key: id, ref: id}))
+      return (ObjectCom({obj: obj, onDirty: this.onDirty.bind(this, i), key: id, ref: id, objnum: i}))
     }.bind(this))
     var syncButton = (this.state.canSync) ?
-      React.DOM.button({onClick: this.handleSync}, "sync") :
-      React.DOM.button({disabled: true, onClick: this.handleSync}, "sync")
+      React.DOM.button({className: "btn btn-success", onClick: this.handleSync}, "sync") :
+      React.DOM.button({className: "btn btn-default", disabled: true, onClick: this.handleSync}, "sync")
     var logNodes = ecos.map(function(obj, i) {
       var id = 'log' + i
-      return (LogCom({key: id, ref: id}))
+      return (LogCom({key: id, ref: id, objnum: i}))
     }.bind(this))
-    return React.DOM.div(null, objectNodes, syncButton, logNodes)
+    return React.DOM.div(null, objectNodes, React.DOM.div({className: "sync-btn text-success"}, "← ", syncButton, " →"), logNodes)
   }
 })
 
