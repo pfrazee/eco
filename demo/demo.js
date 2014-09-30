@@ -79,8 +79,8 @@ var App = React.createClass({
       return (<ObjectCom obj={obj} onDirty={this.onDirty.bind(this, i)} key={id} ref={id} objnum={i} />)
     }.bind(this))
     var syncButton = (this.state.canSync) ?
-      <button className="btn btn-success" onClick={this.handleSync}>sync</button> :
-      <button className="btn btn-default" disabled onClick={this.handleSync}>sync</button>
+      <button className="btn btn-lg btn-success" onClick={this.handleSync}>sync</button> :
+      <button className="btn btn-lg btn-default" disabled onClick={this.handleSync}>sync</button>
     var logNodes = ecos.map(function(obj, i) {
       var id = 'log' + i
       return (<LogCom key={id} ref={id} objnum={i} />)
